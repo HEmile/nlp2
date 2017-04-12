@@ -41,19 +41,20 @@ print(F_vocab_size)
 def pos_alignments(l, m):
     return itertools.product(range(l), repeat=m)
 
+
+# Using log likelihood as described here https://courses.engr.illinois.edu/cs498jh/HW/HW4.pdf
 def likelihood(english, french, t):
     sum = 0
     for k in range(len(english)):
-        print(k)
-        sumlog = 0
         edata = english[k]
         fdata = french[k]
-        for alignment in pos_alignments(len(edata), len(fdata)):
-            prod = 1
-            for i in range(len(fdata)):
-                prod *= t[fdata[i], edata[alignment[i]]]
-            sumlog += prod
-        sum += math.log(sumlog)
+        sent_sum = -len(fdata)*math.log(len(edata) + 1)
+        for j in range(len(fdata)):
+            sum = 0
+            for i in range(len(edata)):
+                sum += t[j, i]
+            sent_sum += math.log(sum)
+        sum += sent_sum
     return sum
 
 t = np.full((F_vocab_size, E_vocab_size + 1), 1/F_vocab_size)
