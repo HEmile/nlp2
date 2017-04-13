@@ -35,10 +35,10 @@ def likelihood(english, french, t):
         edata = english[k]
         fdata = french[k]
         sent_sum = -len(fdata)*math.log(len(edata) + 1)
-        for j in range(len(fdata)):
+        for f in fdata:
             sum = 0
-            for i in range(len(edata)):
-                sum += t[j, i]
+            for e in edata:
+                sum += t[f, e]
             sent_sum += math.log(sum)
         sum += sent_sum
     return sum
@@ -78,13 +78,11 @@ def main():
         for k in range(len(english)):
             fdata = french[k]
             edata = english[k]
-            for i in range(len(fdata)):
-                f = fdata[i]
+            for f in fdata:
                 norm = 0
-                for j in range(len(edata)):
-                    norm += t[f, edata[j]]
-                for j in range(len(edata)):
-                    e = edata[j]
+                for e in edata:
+                    norm += t[f, e]
+                for e in edata:
                     delta = t[f, e] / norm
                     align_pairs[e, f] += delta
                     tot_align[e] += delta
