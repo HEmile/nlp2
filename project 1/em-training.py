@@ -1,5 +1,4 @@
 from collections import Counter
-import itertools
 import math
 import numpy as np
 
@@ -64,19 +63,28 @@ def main():
     # Init t uniformly
     # t = np.full((F_vocab_size, E_vocab_size + 1), 1/F_vocab_size)
 
-    t = {}
+    combs = set()
     for k in range(len(english)):
         fdata = french[k]
         edata = english[k]
         for e in edata:
             for f in fdata:
-                t[f, e] = 1
+                combs.add((f, e))
+    print('Computing total counts per English words')
+    count_tots = Counter()
+    for _, e in combs:
+        count_tots[e] += 1
     print('Computing initial chances')
-    for e in range(E_vocab_size):
-        chance = 1 / sum([1 if (f, e) in t else 0 for f in range(F_vocab_size)])
-        for f in range(F_vocab_size):
-            if (f, e) in t:
-                t[f, e] = chance
+    chances = np.empty(E_vocab_size)
+    for e in count_tots.keys():
+        chances[e] = 1 / count_tots[e]
+    del count_tots
+    print('Assigning t dictionary')
+    t = {}
+    for f, e in combs:
+        t[f, e] = chances[e]
+    del combs
+    del chances
 
     diff = 5
     prev = 1000
@@ -100,10 +108,8 @@ def main():
                     align_pairs[e, f] += delta
                     tot_align[e] += delta
         print('maximization')
-        for f in range(F_vocab_size):
-            for e in range(E_vocab_size):
-                if (f, e) in t:
-                    t[f, e] = align_pairs[e, f] / tot_align[e]
+        for e, f in align_pairs.keys():
+            t[f, e] = align_pairs[e, f] / tot_align[e]
         diff = prev - ent
         prev = ent
 
