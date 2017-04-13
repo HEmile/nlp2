@@ -27,9 +27,9 @@ def pos_alignments(l, m):
     return itertools.product(range(l), repeat=m)
 
 
-# Using log likelihood as described here
+# Using log entropy as described here
 # https://courses.engr.illinois.edu/cs498jh/HW/HW4.pdf
-def likelihood(english, french, t):
+def entropy(english, french, t):
     _sum = 0
     for k in range(len(english)):
         edata = english[k]
@@ -73,7 +73,7 @@ def main():
     # Train using EM
     for s in range(4):
         print(s)
-        print(likelihood(english, french, t))
+        print(entropy(english, french, t))
         align_pairs = Counter()
         tot_align = Counter()
         for k in range(len(english)):
