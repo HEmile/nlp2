@@ -34,14 +34,14 @@ def likelihood(english, french, t):
     for k in range(len(english)):
         edata = english[k]
         fdata = french[k]
-        sent_sum = -len(fdata)*math.log(len(edata) + 1)
+        sum_n = 0
         for f in fdata:
-            _sum = 0
+            sum_m = 0
             for e in edata:
-                _sum += t[f, e]
-            sent_sum += math.log(_sum)
-        _sum += sent_sum
-    return _sum
+                sum_m += t[f, e]
+            sum_n += math.log(sum_m)
+        _sum += sum_n
+    return _sum * -1 / len(english)
 
 # Set up the data
 def init_data():
@@ -59,7 +59,7 @@ def init_data():
 
     english, E_vocab_size = convert_to_ids(english)
     french, F_vocab_size = convert_to_ids(french)
-    return (english, french, F_vocab_size, E_vocab_size)
+    return english, french, F_vocab_size, E_vocab_size
 
 
 def main():
