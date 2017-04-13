@@ -1,5 +1,4 @@
 from collections import Counter
-import itertools
 import math
 import numpy as np
 import aer
@@ -10,8 +9,6 @@ def convert_to_ids(sentences):
     new_sentences = []
     for s in sentences:
         sent = []
-        if len(new_sentences) > 5000:
-            break
         for word in s:
             if word in ids:
                 sent.append(ids[word])
@@ -21,10 +18,6 @@ def convert_to_ids(sentences):
                 sent.append(_id)
         new_sentences.append(sent)
     return new_sentences, _id + 1
-
-
-def pos_alignments(l, m):
-    return itertools.product(range(l), repeat=m)
 
 
 # Using log entropy as described here
@@ -70,6 +63,8 @@ def init_data():
             frenchVal.append(sent)
 
     english, E_vocab_size = convert_to_ids(english)
+    for sent in english:
+        sent.append('NULL')
     french, F_vocab_size = convert_to_ids(french)
     return english, french, F_vocab_size, E_vocab_size
 
@@ -80,15 +75,42 @@ def main():
     print(F_vocab_size)
 
     # Init t uniformly
-    t = np.full((F_vocab_size, E_vocab_size + 1), 1/F_vocab_size)
+    # t = np.full((F_vocab_size, E_vocab_size + 1), 1/F_vocab_size)
+
+    combs = set()
+    for k in range(len(english)):
+        fdata = french[k]
+        edata = english[k]
+        for e in edata:
+            for f in fdata:
+                combs.add((f, e))
+    print('Computing total counts per English words')
+    count_tots = Counter()
+    for _, e in combs:
+        count_tots[e] += 1
+    print('Computing initial chances')
+    chances = np.empty(E_vocab_size)
+    for e in count_tots.keys():
+        chances[e] = 1 / count_tots[e]
+    del count_tots
+    print('Assigning t dictionary')
+    t = {}
+    for f, e in combs:
+        t[f, e] = chances[e]
+    del combs
+    del chances
+    print('Initialising NULL words')
+    for f in range(F_vocab_size):
+        t[f, 'NULL'] = 1 / F_vocab_size
 
     diff = 5
     prev = 1000
-    
+
     # Train using EM
     while diff > 1:
         ent = entropy(english, french, t)
         print(ent)
+        print('expectation')
         align_pairs = Counter()
         tot_align = Counter()
         for k in range(len(english)):
@@ -102,12 +124,13 @@ def main():
                     delta = t[f, e] / norm
                     align_pairs[e, f] += delta
                     tot_align[e] += delta
-        for f in range(F_vocab_size):
-            for e in range(E_vocab_size):
-                t[f, e] = align_pairs[e, f] / tot_align[e]
+        print('maximization')
+        for e, f in align_pairs.keys():
+            t[f, e] = align_pairs[e, f] / tot_align[e]
         diff = prev - ent
         prev = ent
 
+<<<<<<< HEAD
 #Compute AER per iteration over validation data        
 def aer_metric():
     english, french, F_vocab_size, E_vocab_size = init_data()
@@ -146,6 +169,8 @@ def aer_metric():
             metric.update(sure=gold[0], probable=gold[1], predicted=pred)
         # AER
         print(metric.aer())
+=======
+>>>>>>> origin/master
 
 if __name__ == '__main__':
     main()
