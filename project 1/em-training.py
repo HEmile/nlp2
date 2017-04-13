@@ -2,7 +2,7 @@ from collections import Counter
 import itertools
 import math
 import numpy as np
-
+import aer
 
 def convert_to_ids(sentences):
     ids = {}
@@ -47,6 +47,8 @@ def entropy(english, french, t):
 def init_data():
     english = []
     french = []
+    englishVal = []
+    frenchVal = []
     with open('training/hansards.36.2.e', encoding='utf8') as f:
         for l in f:
             sent = l.split()
@@ -56,13 +58,23 @@ def init_data():
         for l in f:
             sent = l.split()
             french.append(sent)
+            
+    with open('validation/dev.e', encoding='utf8') as f:
+        for l in f:
+            sent = l.split()
+            englishVal.append(sent)
+
+    with open('validation/dev.f', encoding='utf8') as f:
+        for l in f:
+            sent = l.split()
+            frenchVal.append(sent)
 
     english, E_vocab_size = convert_to_ids(english)
     french, F_vocab_size = convert_to_ids(french)
     return english, french, F_vocab_size, E_vocab_size
 
 
-def main():
+def main():   
     english, french, F_vocab_size, E_vocab_size = init_data()
     print(E_vocab_size)
     print(F_vocab_size)
@@ -95,6 +107,45 @@ def main():
                 t[f, e] = align_pairs[e, f] / tot_align[e]
         diff = prev - ent
         prev = ent
+
+#Compute AER per iteration over validation data        
+def aer_metric():
+    english, french, F_vocab_size, E_vocab_size = init_data()
+    
+    # Init t uniformly
+    t = np.full((F_vocab_size, E_vocab_size + 1), 1/F_vocab_size)
+    
+    gold_sets = aer.read_naacl_alignments('validation/dev.wa.nonullalign')
+    
+    for s in range(4):
+        ent = entropy(english, french, t)
+        print(ent)
+        align_pairs = Counter()
+        tot_align = Counter()
+        for k in range(len(english)):
+            fdata = french[k]
+            edata = english[k]
+            for f in fdata:
+                norm = 0
+                for e in edata:
+                    norm += t[f, e]
+                for e in edata:
+                    delta = t[f, e] / norm
+                    align_pairs[e, f] += delta
+                    tot_align[e] += delta
+        for f in range(F_vocab_size):
+            for e in range(E_vocab_size):
+                t[f, e] = align_pairs[e, f] / tot_align[e]
+                
+        #TODO: from t to predictions on validation
+
+    
+        metric = aer.AERSufficientStatistics()
+        # then we iterate over the corpus 
+        for gold, pred in zip(gold_sets, predictions):
+            metric.update(sure=gold[0], probable=gold[1], predicted=pred)
+        # AER
+        print(metric.aer())
 
 if __name__ == '__main__':
     main()

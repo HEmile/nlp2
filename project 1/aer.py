@@ -92,6 +92,8 @@ def test(path):
             if random() < 0.5:
                 links.add(link)
         predictions.append(links)
+        
+    print(predictions)
 
     # 3. Compute AER
 
