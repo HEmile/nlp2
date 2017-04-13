@@ -70,10 +70,13 @@ def main():
     # Init t uniformly
     t = np.full((F_vocab_size, E_vocab_size + 1), 1/F_vocab_size)
 
+    diff = 5
+    prev = 1000
+    
     # Train using EM
-    for s in range(4):
-        print(s)
-        print(entropy(english, french, t))
+    while diff > 1:
+        ent = entropy(english, french, t)
+        print(ent)
         align_pairs = Counter()
         tot_align = Counter()
         for k in range(len(english)):
@@ -90,7 +93,8 @@ def main():
         for f in range(F_vocab_size):
             for e in range(E_vocab_size):
                 t[f, e] = align_pairs[e, f] / tot_align[e]
-
+        diff = prev - ent
+        prev = ent
 
 if __name__ == '__main__':
     main()
