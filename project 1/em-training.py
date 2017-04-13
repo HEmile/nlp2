@@ -6,7 +6,7 @@ import numpy as np
 
 def convert_to_ids(sentences):
     ids = {}
-    id = 0
+    _id = 0
     new_sentences = []
     for s in sentences:
         sent = []
@@ -16,11 +16,11 @@ def convert_to_ids(sentences):
             if word in ids:
                 sent.append(ids[word])
             else:
-                ids[word] = id
-                id += 1
-                sent.append(id)
+                ids[word] = _id
+                _id += 1
+                sent.append(_id)
         new_sentences.append(sent)
-    return new_sentences, id + 1
+    return new_sentences, _id + 1
 
 
 def pos_alignments(l, m):
@@ -30,18 +30,18 @@ def pos_alignments(l, m):
 # Using log likelihood as described here
 # https://courses.engr.illinois.edu/cs498jh/HW/HW4.pdf
 def likelihood(english, french, t):
-    sum = 0
+    _sum = 0
     for k in range(len(english)):
         edata = english[k]
         fdata = french[k]
         sent_sum = -len(fdata)*math.log(len(edata) + 1)
         for f in fdata:
-            sum = 0
+            _sum = 0
             for e in edata:
-                sum += t[f, e]
-            sent_sum += math.log(sum)
-        sum += sent_sum
-    return sum
+                _sum += t[f, e]
+            sent_sum += math.log(_sum)
+        _sum += sent_sum
+    return _sum
 
 # Set up the data
 def init_data():
