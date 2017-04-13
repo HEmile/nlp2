@@ -51,6 +51,8 @@ def init_data():
             french.append(sent)
 
     english, E_vocab_size = convert_to_ids(english)
+    for sent in english:
+        sent.append('NULL')
     french, F_vocab_size = convert_to_ids(french)
     return english, french, F_vocab_size, E_vocab_size
 
@@ -85,10 +87,13 @@ def main():
         t[f, e] = chances[e]
     del combs
     del chances
+    print('Initialising NULL words')
+    for f in range(F_vocab_size):
+        t[f, 'NULL'] = 1 / F_vocab_size
 
     diff = 5
     prev = 1000
-    
+
     # Train using EM
     while diff > 1:
         ent = entropy(english, french, t)
