@@ -10,8 +10,6 @@ def convert_to_ids(sentences):
     new_sentences = []
     for s in sentences:
         sent = []
-        if len(new_sentences) > 5000:
-            break
         for word in s:
             if word in ids:
                 sent.append(ids[word])
@@ -21,10 +19,6 @@ def convert_to_ids(sentences):
                 sent.append(_id)
         new_sentences.append(sent)
     return new_sentences, _id + 1
-
-
-def pos_alignments(l, m):
-    return itertools.product(range(l), repeat=m)
 
 
 # Using log entropy as described here
@@ -68,7 +62,21 @@ def main():
     print(F_vocab_size)
 
     # Init t uniformly
-    t = np.full((F_vocab_size, E_vocab_size + 1), 1/F_vocab_size)
+    # t = np.full((F_vocab_size, E_vocab_size + 1), 1/F_vocab_size)
+
+    t = {}
+    for k in range(len(english)):
+        fdata = french[k]
+        edata = english[k]
+        for e in edata:
+            for f in fdata:
+                t[f, e] = 1
+    print('Computing initial chances')
+    for e in range(E_vocab_size):
+        chance = 1 / sum([1 if (f, e) in t else 0 for f in range(F_vocab_size)])
+        for f in range(F_vocab_size):
+            if (f, e) in t:
+                t[f, e] = chance
 
     diff = 5
     prev = 1000
@@ -77,6 +85,7 @@ def main():
     while diff > 1:
         ent = entropy(english, french, t)
         print(ent)
+        print('expectation')
         align_pairs = Counter()
         tot_align = Counter()
         for k in range(len(english)):
@@ -90,11 +99,14 @@ def main():
                     delta = t[f, e] / norm
                     align_pairs[e, f] += delta
                     tot_align[e] += delta
+        print('maximization')
         for f in range(F_vocab_size):
             for e in range(E_vocab_size):
-                t[f, e] = align_pairs[e, f] / tot_align[e]
+                if (f, e) in t:
+                    t[f, e] = align_pairs[e, f] / tot_align[e]
         diff = prev - ent
         prev = ent
+
 
 if __name__ == '__main__':
     main()
