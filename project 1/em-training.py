@@ -53,6 +53,7 @@ def init_data():
             english.append(sent)
 
     with open('training/hansards.36.2.f', encoding='utf8') as f:
+        for l in f:
             sent = l.split()
             french.append(sent)
 
