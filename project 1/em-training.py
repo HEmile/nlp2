@@ -3,8 +3,7 @@ import math
 import numpy as np
 import aer
 
-def convert_to_ids(sentences):
-    ids = {}
+def convert_to_ids(sentences, ids):
     _id = 0
     new_sentences = []
     for s in sentences:
@@ -17,7 +16,7 @@ def convert_to_ids(sentences):
                 _id += 1
                 sent.append(_id)
         new_sentences.append(sent)
-    return new_sentences, _id + 1
+    return new_sentences, _id + 1, ids
 
 
 # Using log entropy as described here
@@ -61,16 +60,22 @@ def init_data():
         for l in f:
             sent = l.split()
             frenchVal.append(sent)
-
-    english, E_vocab_size = convert_to_ids(english)
+    
+    idsEng = {}
+    idsFren = {}
+    english, E_vocab_size, idsEng = convert_to_ids(english, idsEng)
     for sent in english:
         sent.append('NULL')
-    french, F_vocab_size = convert_to_ids(french)
-    return english, french, F_vocab_size, E_vocab_size
+    french, F_vocab_size, idsFren = convert_to_ids(french, idsFren)
+    
+    englishVal, _, _ = convert_to_ids(englishVal, idsEng)
+    frenchVal, _, _ = convert_to_ids(frenchVal, idsFren) 
+    
+    return english, french, F_vocab_size, E_vocab_size, englishVal, frenchVal
 
 
 def main():   
-    english, french, F_vocab_size, E_vocab_size = init_data()
+    english, french, F_vocab_size, E_vocab_size, _, _ = init_data()
     print(E_vocab_size)
     print(F_vocab_size)
 
@@ -130,10 +135,9 @@ def main():
         diff = prev - ent
         prev = ent
 
-<<<<<<< HEAD
 #Compute AER per iteration over validation data        
 def aer_metric():
-    english, french, F_vocab_size, E_vocab_size = init_data()
+    english, french, F_vocab_size, E_vocab_size, englishVal, frenchVal = init_data()
     
     # Init t uniformly
     t = np.full((F_vocab_size, E_vocab_size + 1), 1/F_vocab_size)
@@ -169,8 +173,7 @@ def aer_metric():
             metric.update(sure=gold[0], probable=gold[1], predicted=pred)
         # AER
         print(metric.aer())
-=======
->>>>>>> origin/master
+
 
 if __name__ == '__main__':
     main()
