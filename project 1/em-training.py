@@ -63,7 +63,7 @@ def init_data():
         for sent in set:
             sent.append('NULL')
     french, F_vocab_size = convert_to_ids([french, frenchVal])
-    return english, french, F_vocab_size, E_vocab_size
+    return english, french, E_vocab_size, F_vocab_size
 
 
 def init_t(english, french, E_vocab_size, F_vocab_size):
@@ -117,7 +117,7 @@ def em_iteration(english, french, t):
     return t
 
 def main():
-    english, french, F_vocab_size, E_vocab_size = init_data()
+    english, french, E_vocab_size, F_vocab_size = init_data()
     english, french = english[0], french[0]
     print(E_vocab_size)
     print(F_vocab_size)
@@ -125,7 +125,7 @@ def main():
     # Init t uniformly
     # t = np.full((F_vocab_size, E_vocab_size + 1), 1/F_vocab_size)
 
-    t = init_t(english, french, F_vocab_size, E_vocab_size)
+    t = init_t(english, french, E_vocab_size, F_vocab_size)
 
     diff = 5
     prev = 1000
@@ -141,11 +141,11 @@ def main():
 
 # Compute AER per iteration over validation data
 def aer_metric():
-    english, french, F_vocab_size, E_vocab_size = init_data()
+    english, french, E_vocab_size, F_vocab_size = init_data()
     train_english, train_french = english[0], french[0]
 
     # Init t uniformly
-    t = init_t(train_english, train_french, F_vocab_size, E_vocab_size)
+    t = init_t(train_english, train_french, E_vocab_size, F_vocab_size)
 
     gold_sets = aer.read_naacl_alignments('validation/dev.wa.nonullalign')
 
