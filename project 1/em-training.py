@@ -45,9 +45,10 @@ def entropy(english, french, t):
 def read_dataset(path):
     sentences = []
     with open(path, encoding='utf8') as f:
-        for l in f:
-            sent = l.split()
-            sentences.append(sent)
+        for i in range(5000):
+            for l in f:
+                sent = l.split()
+                sentences.append(sent)
     return sentences
 
 
@@ -143,6 +144,8 @@ def main():
 def aer_metric():
     english, french, E_vocab_size, F_vocab_size = init_data()
     train_english, train_french = english[0], french[0]
+    
+    val_english, val_french = english[1], french[1]
 
     # Init t uniformly
     t = init_t(train_english, train_french, E_vocab_size, F_vocab_size)
@@ -151,9 +154,28 @@ def aer_metric():
 
     for s in range(4):
         t = em_iteration(train_english, train_french, t)
-
-        # TODO: from t to predictions on validation
-
+        
+        predictions = []
+        for k in range(len(val_french)):
+            english = val_english[k]
+            french = val_french[k]
+            sen = set()
+            for i in french:
+                old_val = 0
+                for j in english:
+                    if (i,j) in t.keys():
+                        value = t[(i,j)]
+                        if value >= old_val:
+                            best = (i,j)
+                            old_val = value
+                    else:
+                        value = t[(i,'NULL')]
+                        if value >= old_val:
+                            best = (i,'NULL')
+                            old_val = value
+                sen.add(best)
+            predictions.append(sen)
+            
         metric = aer.AERSufficientStatistics()
         # then we iterate over the corpus 
         for gold, pred in zip(gold_sets, predictions):
@@ -163,4 +185,5 @@ def aer_metric():
 
 
 if __name__ == '__main__':
-    main()
+    #main()
+    aer_metric()
