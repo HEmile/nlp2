@@ -156,13 +156,8 @@ def aer_metric():
     metrics = []
 
     for s in range(4):
-<<<<<<< HEAD
-        t = em_iteration(train_english, train_french, t)
-        
-=======
-        t = em_iteration(train_english, train_french, t, E_vocab_size, F_vocab_size)
+        t = em_iteration(train_english, train_french, t,E_vocab_size,F_vocab_size)
 
->>>>>>> origin/master
         predictions = []
         for k in range(len(val_french)):
             english = val_english[k]
@@ -191,11 +186,7 @@ def aer_metric():
 
 
 if __name__ == '__main__':
-<<<<<<< HEAD
     # main()
     aer_metric() #On validation data
-=======
-    main()
-    # aer_metric()
->>>>>>> origin/master
+
 
