@@ -2,27 +2,32 @@ from collections import Counter
 import math
 import numpy as np
 import aer
+import operator
 
 
-def convert_to_ids(data):
+def convert_to_ids(data, truncate_size=10000):
+    counts = Counter()
+    for set in data:
+        for s in set:
+            for word in s:
+                counts[word] += 1
+    st = sorted(counts.items(), key=operator.itemgetter(1), reverse=True)
     ids = {}
-    _id = 0
+    for i in range(truncate_size):
+        ids[st[i][0]] = i + 1
+    for i in range(truncate_size, len(st)):
+        ids[st[i][0]] = truncate_size + 1
     new_sentences = []
     for set in data:
         converted = []
         for s in set:
             sent = []
             for word in s:
-                if word in ids:
-                    sent.append(ids[word])
-                else:
-                    ids[word] = _id
-                    _id += 1
-                    sent.append(_id)
+                sent.append(ids[word])
             if sent:
                 converted.append(sent)
         new_sentences.append(converted)
-    return new_sentences, _id + 1
+    return new_sentences, truncate_size + 2 # !???
 
 
 # Using log entropy as described here
@@ -62,38 +67,15 @@ def init_data():
     english, E_vocab_size = convert_to_ids([english, englishVal])
     for set in english:
         for sent in set:
-            sent.append('NULL')
+            sent.append(0) # Append NULL WORD
     french, F_vocab_size = convert_to_ids([french, frenchVal])
     return english, french, E_vocab_size, F_vocab_size
 
 
 def init_t(english, french, E_vocab_size, F_vocab_size):
-    combs = set()
-    for k in range(len(english)):
-        fdata = french[k]
-        edata = english[k]
-        for e in edata:
-            if e != 'NULL':
-                for f in fdata:
-                    combs.add((f, e))
-    print('Computing total counts per English words')
-    count_tots = Counter()
-    for _, e in combs:
-        count_tots[e] += 1
-    print('Computing initial chances')
-    chances = np.empty(E_vocab_size)
-    for e in count_tots.keys():
-        chances[e] = 1 / count_tots[e]
-    del count_tots
-    print('Assigning t dictionary')
-    t = {}
-    for f, e in combs:
-        t[f, e] = chances[e]
-    print('Initialising NULL words')
-    for f in range(F_vocab_size):
-        t[f, 'NULL'] = 1 / F_vocab_size
+    print('Initialising t array')
+    t = np.full((F_vocab_size, E_vocab_size), 1/(F_vocab_size - 1)) # You also initialize f = 0, even though it's never used
     return t
-
 
 # Runs one iteration of the EM algorithm and
 # returns the new t matrix
@@ -188,3 +170,4 @@ def aer_metric():
 if __name__ == '__main__':
     # main()
     aer_metric()
+
