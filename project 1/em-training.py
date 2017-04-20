@@ -50,7 +50,7 @@ def entropy(english, french, t):
 def read_dataset(path):
     sentences = []
     with open(path, encoding='utf8') as f:
-        for i in range(5000):
+        for i in range(100):
             for l in f:
                 sent = l.split()
                 sentences.append(sent)
@@ -135,7 +135,7 @@ def aer_metric():
 
     gold_sets = aer.read_naacl_alignments('validation/dev.wa.nonullalign')
 
-    for s in range(4):
+    for s in range(1):
         t = em_iteration(train_english, train_french, t)
 
         predictions = []
@@ -146,16 +146,11 @@ def aer_metric():
             for i in french:
                 old_val = 0
                 for j in english:
-                    if (i, j) in t.keys():
-                        value = t[(i, j)]
-                        if value >= old_val:
-                            best = (i, j)
-                            old_val = value
-                    else:
-                        value = t[(i, 'NULL')]
-                        if value >= old_val:
-                            best = (i, 'NULL')
-                            old_val = value
+                    print(j)
+                    value = t[i, j]
+                    if value >= old_val:
+                        best = (i, j)
+                        old_val = value
                 sen.add(best)
             predictions.append(sen)
 
