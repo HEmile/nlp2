@@ -3,6 +3,7 @@ import math
 import numpy as np
 import aer
 import operator
+from scipy.special import digamma
 
 
 def convert_to_ids(data, truncate_size=10000):
@@ -79,7 +80,7 @@ def init_t(english, french, E_vocab_size, F_vocab_size):
 
 # Runs one iteration of the EM algorithm and
 # returns the new t matrix
-def em_iteration(english, french, t):
+def em_iteration(english, french, t, E_vocab_size, F_vocab_size):
     print('expectation')
     align_pairs = Counter()
     tot_align = Counter()
@@ -87,9 +88,7 @@ def em_iteration(english, french, t):
         fdata = french[k]
         edata = english[k]
         for f in fdata:
-            norm = 0
-            for e in edata:
-                norm += t[f, e]
+            norm = sum([t[f, e] for e in edata])
             for e in edata:
                 delta = t[f, e] / norm
                 align_pairs[e, f] += delta
@@ -99,6 +98,27 @@ def em_iteration(english, french, t):
         t[f, e] = align_pairs[e, f] / tot_align[e]
     return t
 
+
+def vb_iteration(english, french, t, E_vocab_size, F_vocab_size, alpha=0.001):
+    print('expectation')
+    align_pairs = Counter()
+    for k in range(len(english)):
+        fdata = french[k]
+        edata = english[k]
+        for f in fdata:
+            norm = sum([t[f, e] for e in edata])
+            for e in edata:
+                delta = t[f, e] / norm
+                align_pairs[e, f] += delta
+    print('Maximization')
+    sum_psis = np.empty(E_vocab_size)
+    for e in range(E_vocab_size):
+        sum_l = sum([align_pairs[e, f] for f in range(F_vocab_size)])
+        sum_l += alpha * F_vocab_size
+        sum_psis[e] = digamma(sum_l)
+    for e, f in align_pairs.keys():
+        t[f, e] = math.exp(digamma(align_pairs[e, f] + alpha) - sum_psis[e])
+    return t
 
 def main():
     english, french, E_vocab_size, F_vocab_size = init_data()
@@ -118,7 +138,7 @@ def main():
     while diff > 1:
         ent = entropy(english, french, t)
         print(ent)
-        t = em_iteration(english, french, t)
+        t = vb_iteration(english, french, t, E_vocab_size, F_vocab_size)
         diff = prev - ent
         prev = ent
 
@@ -135,8 +155,8 @@ def aer_metric():
 
     gold_sets = aer.read_naacl_alignments('validation/dev.wa.nonullalign')
 
-    for s in range(1):
-        t = em_iteration(train_english, train_french, t)
+    for s in range(4):
+        t = em_iteration(train_english, train_french, t, E_vocab_size, F_vocab_size)
 
         predictions = []
         for k in range(len(val_french)):
@@ -163,6 +183,6 @@ def aer_metric():
 
 
 if __name__ == '__main__':
-    # main()
-    aer_metric()
+    main()
+    # aer_metric()
 
