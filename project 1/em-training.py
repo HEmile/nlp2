@@ -50,10 +50,9 @@ def entropy(english, french, t):
 def read_dataset(path):
     sentences = []
     with open(path, encoding='utf8') as f:
-        for i in range(100):
-            for l in f:
-                sent = l.split()
-                sentences.append(sent)
+        for l in f:
+            sent = l.split()
+            sentences.append(sent)
     return sentences
 
 
@@ -134,24 +133,25 @@ def aer_metric():
     t = init_t(train_english, train_french, E_vocab_size, F_vocab_size)
 
     gold_sets = aer.read_naacl_alignments('validation/dev.wa.nonullalign')
+    metrics = []
 
-    for s in range(1):
+    for s in range(4):
         t = em_iteration(train_english, train_french, t)
-
+        
         predictions = []
         for k in range(len(val_french)):
             english = val_english[k]
             french = val_french[k]
             sen = set()
-            for i in french:
+            for i in range(len(french)):
                 old_val = 0
-                for j in english:
-                    print(j)
-                    value = t[i, j]
+                for j in range(len(english)):
+                    value = t[french[i], english[j]]
                     if value >= old_val:
-                        best = (i, j)
+                        best = (j, i)
                         old_val = value
-                sen.add(best)
+                if english[best[0]] != 0:
+                    sen.add(best)
             predictions.append(sen)
 
         metric = aer.AERSufficientStatistics()
@@ -159,10 +159,13 @@ def aer_metric():
         for gold, pred in zip(gold_sets, predictions):
             metric.update(sure=gold[0], probable=gold[1], predicted=pred)
         # AER
-        print(metric.aer())
+        me = metric.aer()
+        print(me)
+        
+        metrics.append(me)
 
 
 if __name__ == '__main__':
     # main()
-    aer_metric()
+    aer_metric() #On validation data
 
