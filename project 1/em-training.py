@@ -155,7 +155,7 @@ def aer_metric():
     gold_sets = aer.read_naacl_alignments('validation/dev.wa.nonullalign')
     metrics = []
 
-    for s in range(4):
+    for s in range(10):
         t = em_iteration(train_english, train_french, t,E_vocab_size,F_vocab_size)
 
         predictions = []
@@ -165,12 +165,17 @@ def aer_metric():
             sen = set()
             for i in range(len(french)):
                 old_val = 0
+                #yes = 0
                 for j in range(len(english)):
                     value = t[french[i], english[j]]
                     if value >= old_val:
                         best = (j, i)
                         old_val = value
-                if english[best[0]] != 0:
+                
+                #for el in sen:
+                #    if el[0] == best[0]:
+                #        yes = 1;
+                if english[best[0]] != 0: #and yes != 1:
                     sen.add(best)
             predictions.append(sen)
 
