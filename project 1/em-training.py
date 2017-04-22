@@ -6,7 +6,7 @@ import operator
 from scipy.special import digamma
 
 
-def convert_to_ids(data, truncate_size=10000):
+def convert_to_ids(data, truncate_size=5000):
     counts = Counter()
     for set in data:
         for s in set:
@@ -48,6 +48,33 @@ def entropy(english, french, t):
     return _sum * -1 / len(english)
 
 
+def aer_metric(val_english, val_french, t):
+    gold_sets = aer.read_naacl_alignments('validation/dev.wa.nonullalign')
+    predictions = []
+    for k in range(len(val_french)):
+        english = val_english[k]
+        french = val_french[k]
+        sen = set()
+        for i in range(len(french)):
+            old_val = 0
+            for j in range(len(english)):
+                print(french[i], english[j])
+                value = t[french[i], english[j]]
+                if value >= old_val:
+                    best = (j, i)
+                    old_val = value
+            if english[best[0]] != 0:
+                sen.add(best)
+        predictions.append(sen)
+
+    metric = aer.AERSufficientStatistics()
+    # then we iterate over the corpus
+    for gold, pred in zip(gold_sets, predictions):
+        metric.update(sure=gold[0], probable=gold[1], predicted=pred)
+    # AER
+    me = metric.aer()
+    return me
+
 def read_dataset(path):
     sentences = []
     with open(path, encoding='utf8') as f:
@@ -77,38 +104,57 @@ def init_t(english, french, E_vocab_size, F_vocab_size):
     t = np.full((F_vocab_size, E_vocab_size), 1/(F_vocab_size - 1)) # You also initialize f = 0, even though it's never used
     return t
 
+
 # Runs one iteration of the EM algorithm and
 # returns the new t matrix
 def em_iteration(english, french, t, E_vocab_size, F_vocab_size):
     print('expectation')
     align_pairs = Counter()
     tot_align = Counter()
+    entropy = 0
     for k in range(len(english)):
         fdata = french[k]
         edata = english[k]
+        sum_n = 0
         for f in fdata:
-            norm = sum([t[f, e] for e in edata])
+            norm = 0
+            for e in edata:
+                norm += t[f, e]
+            sum_n += math.log(norm)
             for e in edata:
                 delta = t[f, e] / norm
                 align_pairs[e, f] += delta
                 tot_align[e] += delta
+        entropy += sum_n
+
+    entropy *= -1 / len(english)
+    print('Entropy:', entropy)
     print('maximization')
     for e, f in align_pairs.keys():
         t[f, e] = align_pairs[e, f] / tot_align[e]
-    return t
+    return t, entropy
 
 
 def vb_iteration(english, french, t, E_vocab_size, F_vocab_size, alpha=0.001):
     print('expectation')
     align_pairs = Counter()
+    entropy = 0
     for k in range(len(english)):
         fdata = french[k]
         edata = english[k]
+        sum_n = 0
         for f in fdata:
-            norm = sum([t[f, e] for e in edata])
+            norm = 0
+            for e in edata:
+                norm += t[f, e]
+            sum_n += math.log(norm)
             for e in edata:
                 delta = t[f, e] / norm
                 align_pairs[e, f] += delta
+        entropy += sum_n
+
+    entropy *= -1 / len(english)
+    print('Entropy:', entropy)
     print('Maximization')
     sum_psis = np.empty(E_vocab_size)
     for e in range(E_vocab_size):
@@ -119,8 +165,10 @@ def vb_iteration(english, french, t, E_vocab_size, F_vocab_size, alpha=0.001):
         t[f, e] = math.exp(digamma(align_pairs[e, f] + alpha) - sum_psis[e])
     return t
 
+
 def main():
     english, french, E_vocab_size, F_vocab_size = init_data()
+    english_val, french_val = english[1], french[1]
     english, french = english[0], french[0]
     print(E_vocab_size)
     print(F_vocab_size)
@@ -135,63 +183,12 @@ def main():
 
     # Train using EM
     while diff > 1:
-        ent = entropy(english, french, t)
-        print(ent)
-        t = vb_iteration(english, french, t, E_vocab_size, F_vocab_size)
+        t, ent = em_iteration(english, french, t, E_vocab_size, F_vocab_size)
+        print(aer_metric(english_val, french_val, t))
         diff = prev - ent
         prev = ent
 
-
-# Compute AER per iteration over validation data
-def aer_metric():
-    english, french, E_vocab_size, F_vocab_size = init_data()
-    train_english, train_french = english[0], french[0]
-
-    val_english, val_french = english[1], french[1]
-
-    # Init t uniformly
-    t = init_t(train_english, train_french, E_vocab_size, F_vocab_size)
-
-    gold_sets = aer.read_naacl_alignments('validation/dev.wa.nonullalign')
-    metrics = []
-
-    for s in range(10):
-        t = em_iteration(train_english, train_french, t,E_vocab_size,F_vocab_size)
-
-        predictions = []
-        for k in range(len(val_french)):
-            english = val_english[k]
-            french = val_french[k]
-            sen = set()
-            for i in range(len(french)):
-                old_val = 0
-                #yes = 0
-                for j in range(len(english)):
-                    value = t[french[i], english[j]]
-                    if value >= old_val:
-                        best = (j, i)
-                        old_val = value
-                
-                #for el in sen:
-                #    if el[0] == best[0]:
-                #        yes = 1;
-                if english[best[0]] != 0: #and yes != 1:
-                    sen.add(best)
-            predictions.append(sen)
-
-        metric = aer.AERSufficientStatistics()
-        # then we iterate over the corpus
-        for gold, pred in zip(gold_sets, predictions):
-            metric.update(sure=gold[0], probable=gold[1], predicted=pred)
-        # AER
-        me = metric.aer()
-        print(me)
-        
-        metrics.append(me)
-
-
 if __name__ == '__main__':
-    # main()
-    aer_metric() #On validation data
+    main()
 
 
