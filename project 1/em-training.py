@@ -4,9 +4,19 @@ import numpy as np
 import aer
 import operator
 from scipy.special import digamma
+import pickle
 
 
-def convert_to_ids(data, truncate_size=5000):
+JUMP_LENGTH = 100
+
+IBM_1_ITERATIONS = 10
+IBM_2_ITERATIONS = 5
+
+LOAD_PATH = 'IBM1-em-10.t'
+
+VOCABULARY = 15000
+
+def convert_to_ids(data):
     counts = Counter()
     for set in data:
         for s in set:
@@ -14,10 +24,10 @@ def convert_to_ids(data, truncate_size=5000):
                 counts[word] += 1
     st = sorted(counts.items(), key=operator.itemgetter(1), reverse=True)
     ids = {}
-    for i in range(truncate_size):
+    for i in range(VOCABULARY):
         ids[st[i][0]] = i + 1
-    for i in range(truncate_size, len(st)):
-        ids[st[i][0]] = truncate_size + 1
+    for i in range(VOCABULARY, len(st)):
+        ids[st[i][0]] = VOCABULARY + 1
     new_sentences = []
     for set in data:
         converted = []
@@ -28,7 +38,7 @@ def convert_to_ids(data, truncate_size=5000):
             if sent:
                 converted.append(sent)
         new_sentences.append(converted)
-    return new_sentences, truncate_size + 2 # !???
+    return new_sentences, VOCABULARY + 2 # !???
 
 
 # Using log entropy as described here
@@ -48,7 +58,7 @@ def entropy(english, french, t):
     return _sum * -1 / len(english)
 
 
-def aer_metric(val_english, val_french, t):
+def aer_metric(val_english, val_french, t, q):
     gold_sets = aer.read_naacl_alignments('validation/dev.wa.nonullalign')
     predictions = []
     for k in range(len(val_french)):
@@ -58,8 +68,7 @@ def aer_metric(val_english, val_french, t):
         for i in range(len(french)):
             old_val = 0
             for j in range(len(english)):
-                print(french[i], english[j])
-                value = t[french[i], english[j]]
+                value = t[french[i], english[j]] * q[jump(j, i, len(english), len(french))]
                 if value >= old_val:
                     best = (j, i)
                     old_val = value
@@ -96,18 +105,48 @@ def init_data():
         for sent in set:
             sent.append(0) # Append NULL WORD
     french, F_vocab_size = convert_to_ids([french, frenchVal])
+    long_s = []
+    for k in range(len(french[0])):
+        if len(french[0][k]) >= JUMP_LENGTH or len(english[0][k]) >= JUMP_LENGTH:
+            long_s.append(k)
+    english[0] = np.delete(english[0], long_s)
+    french[0] = np.delete(french[0], long_s)
     return english, french, E_vocab_size, F_vocab_size
 
 
-def init_t(english, french, E_vocab_size, F_vocab_size):
+def init_t_uniform(english, french, E_vocab_size, F_vocab_size):
     print('Initialising t array')
-    t = np.full((F_vocab_size, E_vocab_size), 1/(F_vocab_size - 1)) # You also initialize f = 0, even though it's never used
+    t = np.full((F_vocab_size, E_vocab_size), 1/(F_vocab_size - 1))
     return t
 
 
+def init_t_ibm1_em(english, french, E_vocab_size, F_vocab_size):
+    print('Initialising t array using precomputed IBM 1 model')
+    t = init_t_uniform(english, french, E_vocab_size, F_vocab_size)
+    for i in range(IBM_1_ITERATIONS):
+        t, _, _ = em_iteration_ibm1(english, french, t, None, E_vocab_size, F_vocab_size)
+    with open('IBM1-em' + str(IBM_1_ITERATIONS) + '.t') as f:
+        pickle.dump(t, f)
+    return t
+
+
+def init_t_pkl(english, french, E_vocab_size, F_vocab_size):
+    with open(LOAD_PATH) as f:
+        return pickle.load(f)
+
+def init_q():
+    q = {}
+    for i in range(-JUMP_LENGTH, JUMP_LENGTH):
+        q[i] = 1/(2*JUMP_LENGTH)
+    return q
+
+
+def jump(i, j, m, n):
+    return min(max(i - math.floor(j*m/n), -JUMP_LENGTH), JUMP_LENGTH - 1)
+
 # Runs one iteration of the EM algorithm and
 # returns the new t matrix
-def em_iteration(english, french, t, E_vocab_size, F_vocab_size):
+def em_iteration_ibm1(english, french, t, q, E_vocab_size, F_vocab_size):
     print('expectation')
     align_pairs = Counter()
     tot_align = Counter()
@@ -132,10 +171,47 @@ def em_iteration(english, french, t, E_vocab_size, F_vocab_size):
     print('maximization')
     for e, f in align_pairs.keys():
         t[f, e] = align_pairs[e, f] / tot_align[e]
-    return t, entropy
+    return t, q, entropy
 
 
-def vb_iteration(english, french, t, E_vocab_size, F_vocab_size, alpha=0.001):
+def em_iteration_ibm2(english, french, t, q, E_vocab_size, F_vocab_size):
+    print('expectation')
+    align_pairs = Counter()
+    tot_align = Counter()
+    jump_cs = Counter()
+    entropy = 0
+    for k in range(len(english)):
+        fdata = french[k]
+        edata = english[k]
+        sum_n = 0
+        for j in range(len(fdata)):
+            f = fdata[j]
+            norm = 0
+            for i in range(len(edata)):
+                e = edata[i]
+                norm += q[jump(i, j, len(edata), len(fdata))] * t[f, e]
+            sum_n += math.log(norm)
+            for i in range(len(edata)):
+                e = edata[i]
+                jump_i = jump(i, j, len(edata), len(fdata))
+                delta = q[jump_i] * t[f, e] / norm
+                align_pairs[e, f] += delta
+                tot_align[e] += delta
+                jump_cs[jump_i] += delta
+        entropy += sum_n
+
+    entropy *= -1 / len(english)
+    print('Entropy:', entropy)
+    print('maximization')
+    for e, f in align_pairs.keys():
+        t[f, e] = align_pairs[e, f] / tot_align[e]
+    tot_jump = sum(jump_cs[i] for i in range(-JUMP_LENGTH, JUMP_LENGTH))
+    for i in range(-JUMP_LENGTH, JUMP_LENGTH):
+        q[i] = jump_cs[i] / tot_jump
+    return t, q, entropy
+
+
+def vb_iteration(english, french, t, q, E_vocab_size, F_vocab_size, alpha=0.001):
     print('expectation')
     align_pairs = Counter()
     entropy = 0
@@ -176,15 +252,16 @@ def main():
     # Init t uniformly
     # t = np.full((F_vocab_size, E_vocab_size + 1), 1/F_vocab_size)
 
-    t = init_t(english, french, E_vocab_size, F_vocab_size)
+    t = init_t_ibm1_em(english, french, E_vocab_size, F_vocab_size)
+    q = init_q()
 
     diff = 5
     prev = 1000
 
     # Train using EM
-    while diff > 1:
-        t, ent = em_iteration(english, french, t, E_vocab_size, F_vocab_size)
-        print(aer_metric(english_val, french_val, t))
+    for i in range(IBM_2_ITERATIONS):
+        t, q, ent = em_iteration_ibm2(english, french, t, q, E_vocab_size, F_vocab_size)
+        print(aer_metric(english_val, french_val, t, q))
         diff = prev - ent
         prev = ent
 
