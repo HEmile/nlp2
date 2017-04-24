@@ -125,13 +125,13 @@ def init_t_ibm1_em(english, french, E_vocab_size, F_vocab_size):
     t = init_t_uniform(english, french, E_vocab_size, F_vocab_size)
     for i in range(IBM_1_ITERATIONS):
         t, _, _ = em_iteration_ibm1(english, french, t, None, E_vocab_size, F_vocab_size)
-    with open('IBM1-em' + str(IBM_1_ITERATIONS) + '.t') as f:
+    with open('IBM1-em' + str(IBM_1_ITERATIONS) + '.t', 'wb') as f:
         pickle.dump(t, f)
     return t
 
 
 def init_t_pkl(english, french, E_vocab_size, F_vocab_size):
-    with open(LOAD_PATH) as f:
+    with open(LOAD_PATH, 'rb') as f:
         return pickle.load(f)
 
 def init_q():
@@ -258,6 +258,7 @@ def main():
     diff = 5
     prev = 1000
 
+    print('STARTING IBM MODEL 2')
     # Train using EM
     for i in range(IBM_2_ITERATIONS):
         t, q, ent = em_iteration_ibm2(english, french, t, q, E_vocab_size, F_vocab_size)
