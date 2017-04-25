@@ -117,8 +117,14 @@ def init_data():
 
 
 def init_t_uniform(english, french, E_vocab_size, F_vocab_size):
-    print('Initialising t array')
+    print('Initialising t array uniform')
     t = np.full((F_vocab_size, E_vocab_size), 1/(F_vocab_size - 1))
+    return t
+
+def init_t_random(english, french, E_vocab_size, F_vocab_size):
+    print('Initialising t array random')
+    randoms = np.random.rand(F_vocab_size, E_vocab_size)
+    t = np.divide(randoms, sum(randoms))
     return t
 
 
@@ -250,10 +256,14 @@ def vb_iteration(english, french, t, q, E_vocab_size, F_vocab_size, alpha=0.001)
 
 def plots():
     iterations = [1,2,3,4,5,6,7,8,9,10]
+    
+    #Na een run overgenomen:
     IBM1_ent = [127.42, 36.56, 23.98, 20.15, 18.85, 18.26, 17.95, 17.76, 17.65, 17.57]
     IBM1_aer = [0.641, 0.625, 0.622, 0.624, 0.627, 0.628, 0.626, 0.625, 0.626, 0.625]
     vb_IBM1_ent = [127.42, 44.66, 28.605, 25.579, 24.509, 24.007, 23.732, 23.565, 23.457, 23.384]
     vb_IBM1_aer = [0.655, 0.638, 0.632, 0.628, 0.629, 0.633, 0.632, 0.632, 0.629, 0.628]
+    
+    
     plt.plot(iterations, IBM1_aer, '-o', iterations, vb_IBM1_aer, 'r-o')
     plt.xlabel('Iterations')
     plt.ylabel('AER')
@@ -268,6 +278,9 @@ def main():
 
     # Init t uniformly
     # t = np.full((F_vocab_size, E_vocab_size + 1), 1/F_vocab_size)
+
+    #Init t random
+    #t = init_t_random(english, french, E_vocab_size, F_vocab_size)
 
     t = init_t_ibm1_em(english, french, E_vocab_size, F_vocab_size, english_val, french_val)
     q = init_q()
@@ -284,7 +297,7 @@ def main():
         prev = ent
 
 if __name__ == '__main__':
-    #main()
-    plots()
+    main()
+    #plots()
 
 
