@@ -5,6 +5,7 @@ import aer
 import operator
 from scipy.special import digamma
 import pickle
+import matplotlib.pyplot as plt
 
 
 JUMP_LENGTH = 100
@@ -82,6 +83,7 @@ def aer_metric(val_english, val_french, t, q):
         metric.update(sure=gold[0], probable=gold[1], predicted=pred)
     # AER
     me = metric.aer()
+    print("AER:", me)
     return me
 
 def read_dataset(path):
@@ -120,11 +122,13 @@ def init_t_uniform(english, french, E_vocab_size, F_vocab_size):
     return t
 
 
-def init_t_ibm1_em(english, french, E_vocab_size, F_vocab_size):
+def init_t_ibm1_em(english, french, E_vocab_size, F_vocab_size, val_english, val_french):
     print('Initialising t array using precomputed IBM 1 model')
     t = init_t_uniform(english, french, E_vocab_size, F_vocab_size)
     for i in range(IBM_1_ITERATIONS):
         t, _, _ = em_iteration_ibm1(english, french, t, None, E_vocab_size, F_vocab_size)
+        #t = vb_iteration(english, french, t, None, E_vocab_size, F_vocab_size)
+        #me = aer_metric(val_english, val_french, t, _)
     with open('IBM1-em' + str(IBM_1_ITERATIONS) + '.t', 'wb') as f:
         pickle.dump(t, f)
     return t
@@ -241,6 +245,16 @@ def vb_iteration(english, french, t, q, E_vocab_size, F_vocab_size, alpha=0.001)
         t[f, e] = math.exp(digamma(align_pairs[e, f] + alpha) - sum_psis[e])
     return t
 
+def plots():
+    iterations = [1,2,3,4,5,6,7,8,9,10]
+    IBM1_ent = [127.42, 36.56, 23.98, 20.15, 18.85, 18.26, 17.95, 17.76, 17.65, 17.57]
+    IBM1_aer = [0.641, 0.625, 0.622, 0.624, 0.627, 0.628, 0.626, 0.625, 0.626, 0.625]
+    vb_IBM1_ent = [127.42, 44.66, 28.605, 25.579, 24.509, 24.007, 23.732, 23.565, 23.457, 23.384]
+    vb_IBM1_aer = [0.655, 0.638, 0.632, 0.628, 0.629, 0.633, 0.632, 0.632, 0.629, 0.628]
+    plt.plot(iterations, IBM1_aer, '-o', iterations, vb_IBM1_aer, 'r-o')
+    plt.xlabel('Iterations')
+    plt.ylabel('AER')
+    plt.show()
 
 def main():
     english, french, E_vocab_size, F_vocab_size = init_data()
@@ -252,7 +266,7 @@ def main():
     # Init t uniformly
     # t = np.full((F_vocab_size, E_vocab_size + 1), 1/F_vocab_size)
 
-    t = init_t_ibm1_em(english, french, E_vocab_size, F_vocab_size)
+    t = init_t_ibm1_em(english, french, E_vocab_size, F_vocab_size, english_val, french_val)
     q = init_q()
 
     diff = 5
@@ -267,6 +281,7 @@ def main():
         prev = ent
 
 if __name__ == '__main__':
-    main()
+    #main()
+    plots()
 
 
