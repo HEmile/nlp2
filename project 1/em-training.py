@@ -257,12 +257,23 @@ def vb_iteration(english, french, t, q, E_vocab_size, F_vocab_size, alpha=0.001)
 def plots():
     iterations = [1,2,3,4,5,6,7,8,9,10]
     
-    #Na een run overgenomen:
+    #Na een run overgenomen (alpha = 0.001 en vocab = 15000):
     IBM1_ent = [127.42, 36.56, 23.98, 20.15, 18.85, 18.26, 17.95, 17.76, 17.65, 17.57]
     IBM1_aer = [0.641, 0.625, 0.622, 0.624, 0.627, 0.628, 0.626, 0.625, 0.626, 0.625]
     vb_IBM1_ent = [127.42, 44.66, 28.605, 25.579, 24.509, 24.007, 23.732, 23.565, 23.457, 23.384]
     vb_IBM1_aer = [0.655, 0.638, 0.632, 0.628, 0.629, 0.633, 0.632, 0.632, 0.629, 0.628]
     
+    # alpha = 0.001 en voacb = 15000
+    uni_IBM2_ent = [232.12, 107.83, 84.51, 76.13, 73.68, 72.91, 72.59, 72.42, 72.33, 72.27]
+    uni_IBM2_aer = [0.547, 0.539, 0.516, 0.526, 0.524, 0.525, 0.524, 0.527, 0.530, 0.540]
+    rand_IBM2_ent1 = [232.36, 108.50, 85.63, 76.91, 74.15]
+    rand_IBM2_aer1 = [0.596, 0.542, 0.526, 0.516, 0.521]
+    rand_IBM2_ent2 = [232.46, 108.67, 85.69, 76.99, 74.31]
+    rand_IBM2_aer2 = [0.608, 0.567, 0.548, 0.543, 0.536]
+    rand_IBM2_ent3 = [232.27, 108.49, 85.38, 76.65, 74.04]
+    rand_IBM2_aer3 = [0.61, 0.562, 0.530, 0.528, 0.531]
+    ibm_IBM2_ent = [122.22, 79.57, 75.74, 74.58, 73.96]
+    ibm_IBM2_aer = [0.542, 0.531, 0.530, 0.530, 0.531 ]
     
     plt.plot(iterations, IBM1_aer, '-o', iterations, vb_IBM1_aer, 'r-o')
     plt.xlabel('Iterations')
@@ -277,7 +288,7 @@ def main():
     print(F_vocab_size)
 
     # Init t uniformly
-    # t = np.full((F_vocab_size, E_vocab_size + 1), 1/F_vocab_size)
+    #t = np.full((F_vocab_size, E_vocab_size + 1), 1/F_vocab_size)
 
     #Init t random
     #t = init_t_random(english, french, E_vocab_size, F_vocab_size)
@@ -285,16 +296,13 @@ def main():
     t = init_t_ibm1_em(english, french, E_vocab_size, F_vocab_size, english_val, french_val)
     q = init_q()
 
-    diff = 5
-    prev = 1000
 
     print('STARTING IBM MODEL 2')
     # Train using EM
     for i in range(IBM_2_ITERATIONS):
         t, q, ent = em_iteration_ibm2(english, french, t, q, E_vocab_size, F_vocab_size)
-        print(aer_metric(english_val, french_val, t, q))
-        diff = prev - ent
-        prev = ent
+        aer_metric(english_val, french_val, t, q)
+
 
 if __name__ == '__main__':
     main()
