@@ -13,7 +13,7 @@ JUMP_LENGTH = 100
 IBM_1_ITERATIONS = 10
 IBM_2_ITERATIONS = 5
 
-LOAD_PATH = 'IBM1-em-10.t'
+LOAD_PATH = 'IBM1-em10.t'
 
 VOCABULARY = 15000
 
@@ -138,15 +138,18 @@ def init_t_pkl(english, french, E_vocab_size, F_vocab_size):
     with open(LOAD_PATH, 'rb') as f:
         return pickle.load(f)
 
+
 def init_q():
     q = {}
     for i in range(-JUMP_LENGTH, JUMP_LENGTH):
-        q[i] = 1/(2*JUMP_LENGTH)
+        q[i] = 1/(2*JUMP_LENGTH + 1)
+    q['NULL'] = 1/(2*JUMP_LENGTH + 1)
     return q
 
 
 def jump(i, j, m, n):
-    return min(max(i - math.floor(j*m/n), -JUMP_LENGTH), JUMP_LENGTH - 1)
+    return i - math.floor(j*m/n) if i != 0 else 'NULL'
+
 
 # Runs one iteration of the EM algorithm and
 # returns the new t matrix
