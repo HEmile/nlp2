@@ -19,8 +19,8 @@ VOCABULARY = 15000
 
 def convert_to_ids(data):
     counts = Counter()
-    for set in data:
-        for s in set:
+    for set1 in data:
+        for s in set1:
             for word in s:
                 counts[word] += 1
     st = sorted(counts.items(), key=operator.itemgetter(1), reverse=True)
@@ -30,9 +30,9 @@ def convert_to_ids(data):
     for i in range(VOCABULARY, len(st)):
         ids[st[i][0]] = VOCABULARY + 1
     new_sentences = []
-    for set in data:
+    for set1 in data:
         converted = []
-        for s in set:
+        for s in set1:
             sent = []
             for word in s:
                 sent.append(ids[word])
@@ -69,7 +69,7 @@ def aer_metric(val_english, val_french, t, q):
         for i in range(len(french)):
             old_val = 0
             for j in range(len(english)):
-                value = t[french[i], english[j]] * q[jump(j, i, len(english), len(french))]
+                value = t[french[i], english[j]] #* q[jump(j, i, len(english), len(french))]
                 if value >= old_val:
                     best = (j, i)
                     old_val = value
@@ -101,12 +101,14 @@ def init_data():
     french = read_dataset('training/hansards.36.2.f')
     englishVal = read_dataset('validation/dev.e')
     frenchVal = read_dataset('validation/dev.f')
+    englishTest = read_dataset('testing/test/test.e')
+    frenchTest = read_dataset('testing/test/test.f')
 
-    english, E_vocab_size = convert_to_ids([english, englishVal])
+    english, E_vocab_size = convert_to_ids([english, englishVal, englishTest])
     for set in english:
         for sent in set:
             sent.append(0) # Append NULL WORD
-    french, F_vocab_size = convert_to_ids([french, frenchVal])
+    french, F_vocab_size = convert_to_ids([french, frenchVal, frenchTest])
     long_s = []
     for k in range(len(french[0])):
         if len(french[0][k]) >= JUMP_LENGTH or len(english[0][k]) >= JUMP_LENGTH:
@@ -132,9 +134,9 @@ def init_t_ibm1_em(english, french, E_vocab_size, F_vocab_size, val_english, val
     print('Initialising t array using precomputed IBM 1 model')
     t = init_t_uniform(english, french, E_vocab_size, F_vocab_size)
     for i in range(IBM_1_ITERATIONS):
-        t, _, _ = em_iteration_ibm1(english, french, t, None, E_vocab_size, F_vocab_size)
-        #t = vb_iteration(english, french, t, None, E_vocab_size, F_vocab_size)
-        #me = aer_metric(val_english, val_french, t, _)
+        #t, _, _ = em_iteration_ibm1(english, french, t, None, E_vocab_size, F_vocab_size)
+        t = vb_iteration(english, french, t, None, E_vocab_size, F_vocab_size)
+        me = aer_metric(val_english, val_french, t, _)
     with open('IBM1-em' + str(IBM_1_ITERATIONS) + '.t', 'wb') as f:
         pickle.dump(t, f)
     return t
@@ -224,7 +226,7 @@ def em_iteration_ibm2(english, french, t, q, E_vocab_size, F_vocab_size):
     return t, q, entropy
 
 
-def vb_iteration(english, french, t, q, E_vocab_size, F_vocab_size, alpha=0.001):
+def vb_iteration(english, french, t, q, E_vocab_size, F_vocab_size, alpha=0.0001):
     print('expectation')
     align_pairs = Counter()
     entropy = 0
@@ -263,9 +265,17 @@ def plots():
     vb_IBM1_ent = [127.42, 44.66, 28.605, 25.579, 24.509, 24.007, 23.732, 23.565, 23.457, 23.384]
     vb_IBM1_aer = [0.655, 0.638, 0.632, 0.628, 0.629, 0.633, 0.632, 0.632, 0.629, 0.628]
     
+    #alpha = 0.01
+    vb2_IBM1_ent = [127.42, 47.46, 31.62, 28.51, 27.49, 27.02, 26.77, 26.62, 26.53, 26.47]
+    vb2_IBM1_aer = [0.64, 0.66, 0.63, 0.632, 0.63, 0.631, 0.628, 0.627, 0.627, 0.626]
+    
+    #alpha = 0.0001
+    vb3_IBM1_ent = [127.42, 44.05, 27.91, 24.87, 23.77, 23.25, 22.97, 22.80, 22.69, 22.61]
+    vb3_IBM1_aer = [0.65, 0.637, 0.631, 0.630, 0.630, 0.634, 0.633, 0.633, 0.634, 0.633]
+    
     # alpha = 0.001 en voacb = 15000
-    uni_IBM2_ent = [232.12, 107.83, 84.51, 76.13, 73.68, 72.91, 72.59, 72.42, 72.33, 72.27]
-    uni_IBM2_aer = [0.547, 0.539, 0.516, 0.526, 0.524, 0.525, 0.524, 0.527, 0.530, 0.540]
+    uni_IBM2_ent = [232.12, 107.83, 84.51, 76.13, 73.68]
+    uni_IBM2_aer = [0.547, 0.539, 0.516, 0.526, 0.524]
     rand_IBM2_ent1 = [232.36, 108.50, 85.63, 76.91, 74.15]
     rand_IBM2_aer1 = [0.596, 0.542, 0.526, 0.516, 0.521]
     rand_IBM2_ent2 = [232.46, 108.67, 85.69, 76.99, 74.31]
@@ -275,15 +285,54 @@ def plots():
     ibm_IBM2_ent = [122.22, 79.57, 75.74, 74.58, 73.96]
     ibm_IBM2_aer = [0.542, 0.531, 0.530, 0.530, 0.531 ]
     
-    plt.plot(iterations, IBM1_aer, '-o', iterations, vb_IBM1_aer, 'r-o')
+    plt.plot(iterations, IBM1_aer, '--o', label='MLE')
+    plt.plot(iterations, vb_IBM1_aer, 'r--o', label='VB')
     plt.xlabel('Iterations')
-    plt.ylabel('AER')
+    plt.ylabel('Entropy')
+    plt.legend()
     plt.show()
+
+
+def test(t, name, english, french):
+    
+    #AER for test + writing to file
+    gold_sets = aer.read_naacl_alignments('testing/answers/test.wa.nonullalign')
+    predictions = []
+
+    print(french)
+    with open(name, 'w') as f:
+        
+        for k in range(len(french)):
+            english_sen = english[k]
+            french_sen = french[k]
+            sen_best = set()
+            for i in range(len(french_sen)):
+                old_val = 0
+                for j in range(len(english_sen)):
+                    value = t[french_sen[i], english_sen[j]] #* q[jump(j, i, len(english), len(french))]
+                    if value >= old_val:
+                        best = (j, i)
+                        old_val = value
+                if english[best[0]] != 0:
+                    sen_best.add(best)
+                    f.write(str(k+1) + " " + str(best[0]) + " " + str(best[1]) +'\n')
+            predictions.append(sen_best)
+
+    metric = aer.AERSufficientStatistics()
+    # then we iterate over the corpus
+    for gold, pred in zip(gold_sets, predictions):
+        metric.update(sure=gold[0], probable=gold[1], predicted=pred)
+    # AER
+    me = metric.aer()
+    print("AER:", me)
+    
 
 def main():
     english, french, E_vocab_size, F_vocab_size = init_data()
+    english_test, french_test = english[2], french[2]
     english_val, french_val = english[1], french[1]
     english, french = english[0], french[0]
+
     print(E_vocab_size)
     print(F_vocab_size)
 
@@ -293,15 +342,19 @@ def main():
     #Init t random
     #t = init_t_random(english, french, E_vocab_size, F_vocab_size)
 
-    t = init_t_ibm1_em(english, french, E_vocab_size, F_vocab_size, english_val, french_val)
+    #t = init_t_ibm1_em(english, french, E_vocab_size, F_vocab_size, english_val, french_val)
     q = init_q()
-
+    
+    t_ibm1 = init_t_pkl(english, french, E_vocab_size, F_vocab_size)
+    
+    test(t_ibm1, 'ibm1.mle.naacl', english_test, french_test)
 
     print('STARTING IBM MODEL 2')
     # Train using EM
     for i in range(IBM_2_ITERATIONS):
         t, q, ent = em_iteration_ibm2(english, french, t, q, E_vocab_size, F_vocab_size)
         aer_metric(english_val, french_val, t, q)
+        
 
 
 if __name__ == '__main__':
