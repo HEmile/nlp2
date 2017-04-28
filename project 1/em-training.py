@@ -3,7 +3,7 @@ import math
 import numpy as np
 import aer
 import operator
-from scipy.special import digamma
+from scipy.special import digamma, loggamma
 import pickle
 import matplotlib.pyplot as plt
 
@@ -58,7 +58,7 @@ def entropy(english, french, t):
         _sum += sum_n
     return _sum * -1 / len(english)
 
-
+    
 def aer_metric(val_english, val_french, t, q):
     gold_sets = aer.read_naacl_alignments('validation/dev.wa.nonullalign')
     predictions = []
@@ -230,6 +230,8 @@ def vb_iteration(english, french, t, q, E_vocab_size, F_vocab_size, alpha=0.0001
     print('expectation')
     align_pairs = Counter()
     entropy = 0
+    
+    #Fout volgens mij: 
     for k in range(len(english)):
         fdata = french[k]
         edata = english[k]
@@ -255,6 +257,18 @@ def vb_iteration(english, french, t, q, E_vocab_size, F_vocab_size, alpha=0.0001
     for e, f in align_pairs.keys():
         t[f, e] = math.exp(digamma(align_pairs[e, f] + alpha) - sum_psis[e])
     return t
+
+def elbo(english, french, t, F_vocab_size, E_vocab_size, alpha):
+    #First part
+    
+    #Second part
+    kl = 0
+    for e in range(E_vocab_size):
+        for f in range(F_vocab_size): 
+           first_p = (digamma(t[f,e]) - digamma(sum(t[:,e]) - t[f,e])) * (alpha - t[f,e]) + loggamma(t[f,e]) - loggamma(alpha)
+           second_p = loggamma(alpha*F_vocab_size) - loggamma(sum(t[:,e]))
+           kl_e = first_p + second_p
+    kl += kl_e
 
 def plots():
     iterations = [1,2,3,4,5,6,7,8,9,10]
