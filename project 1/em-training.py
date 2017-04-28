@@ -3,7 +3,7 @@ import math
 import numpy as np
 import aer
 import operator
-from scipy.special import digamma, loggamma
+from scipy.special import digamma, loggamma, gammaln, gamma
 import pickle
 import matplotlib.pyplot as plt
 
@@ -256,18 +256,47 @@ def vb_iteration(english, french, t, q, E_vocab_size, F_vocab_size, alpha=0.0001
         sum_psis[e] = digamma(sum_l)
     for e, f in align_pairs.keys():
         t[f, e] = math.exp(digamma(align_pairs[e, f] + alpha) - sum_psis[e])
+        
+    #elb = elbo(english, french, align_pairs, t, F_vocab_size, E_vocab_size, alpha )
+    #print('ELBO:', elb)
     return t
 
 def elbo(english, french, align, t, F_vocab_size, E_vocab_size, alpha):
+    print("Computing ELBO")
+    mle = 0
+    for k in range(len(english)):
+        fdata = french[k]
+        edata = english[k]
+        sum_n = 0
+        for f in fdata:
+            sum_m = 0
+            for e in edata:
+                sum_m += t[f,e]
+            sum_n += math.log(sum_m)
+        mle += sum_n
     
-    kl = 0
+    print("Part 2 -ELBO")
+    #exp_log = np.zeros((F_vocab_size, E_vocab_size))
+    #for (f,e), value in np.ndenumerate(t):
+    #     exp_log[f,e] = ((digamma(value) - digamma(sum(t[:,e]) - value)) * (alpha - value) + loggamma(value) - loggamma(alpha))
+    #     print(f,e)
+    
+    #print("Part 2.1 - ELBO")
+    #kl= 0     
+    #for e in range(E_vocab_size):
+    #    kl_e = sum(exp_log[:,e]) + loggamma(alpha*F_vocab_size) - loggamma(sum(t[:,e]))
+    #    kl += kl_e
+    
+    kl = 0        
     for e in range(E_vocab_size):
         for f in range(F_vocab_size): 
            first_p = (digamma(t[f,e]) - digamma(sum(t[:,e]) - t[f,e])) * (alpha - t[f,e]) + loggamma(t[f,e]) - loggamma(alpha)
            second_p = loggamma(alpha*F_vocab_size) - loggamma(sum(t[:,e]))
-           kl_e = first_p + second_p
-    kl += kl_e
-    return elbo
+           kl_e = first_p.real + second_p.real
+        kl += kl_e
+    print(kl)
+    elb = -kl + mle
+    return elb
 
 def plots():
     iterations = [1,2,3,4,5,6,7,8,9,10]
@@ -277,6 +306,7 @@ def plots():
     IBM1_aer = [0.641, 0.625, 0.622, 0.624, 0.627, 0.628, 0.626, 0.625, 0.626, 0.625]
     vb_IBM1_ent = [127.42, 44.66, 28.605, 25.579, 24.509, 24.007, 23.732, 23.565, 23.457, 23.384]
     vb_IBM1_aer = [0.655, 0.638, 0.632, 0.628, 0.629, 0.633, 0.632, 0.632, 0.629, 0.628]
+    vb_IBM1_elbo = []
     
     #alpha = 0.01
     vb2_IBM1_ent = [127.42, 47.46, 31.62, 28.51, 27.49, 27.02, 26.77, 26.62, 26.53, 26.47]
@@ -321,7 +351,7 @@ def test(t, q, name, english, french):
             for i in range(len(french_sen)):
                 old_val = 0
                 for j in range(len(english_sen)):
-                    value = t[french_sen[i], english_sen[j]] * q[jump(j, i, len(english), len(french))]
+                    value = t[french_sen[i], english_sen[j]] #* q[jump(j, i, len(english), len(french))]
                     if value >= old_val:
                         best = (j, i)
                         old_val = value
@@ -352,14 +382,14 @@ def main():
     #t = np.full((F_vocab_size, E_vocab_size + 1), 1/F_vocab_size)
 
     #Init t random
-    t = init_t_random(english, french, E_vocab_size, F_vocab_size)
+    #t = init_t_random(english, french, E_vocab_size, F_vocab_size)
 
     #t = init_t_ibm1_em(english, french, E_vocab_size, F_vocab_size, english_val, french_val)
     q = init_q()
     
-    #t = init_t_pkl(english, french, E_vocab_size, F_vocab_size)
+    t = init_t_pkl(english, french, E_vocab_size, F_vocab_size)
     
-    #test(t_ibm1, _, 'ibm1.mle.naacl', english_test, french_test)
+    test(t, _, 'ibm1.vb.naacl', english_test, french_test)
 
     print('STARTING IBM MODEL 2')
     # Train using EM
@@ -367,7 +397,7 @@ def main():
         t, q, ent = em_iteration_ibm2(english, french, t, q, E_vocab_size, F_vocab_size)
         #aer_metric(english_val, french_val, t, q)
         
-    test(t, q, 'ibm2.mle.naacl', english_test, french_test)
+    #test(t, q, 'ibm2.mle.naacl', english_test, french_test)
 
 if __name__ == '__main__':
     main()
