@@ -258,10 +258,8 @@ def vb_iteration(english, french, t, q, E_vocab_size, F_vocab_size, alpha=0.0001
         t[f, e] = math.exp(digamma(align_pairs[e, f] + alpha) - sum_psis[e])
     return t
 
-def elbo(english, french, t, F_vocab_size, E_vocab_size, alpha):
-    #First part
+def elbo(english, french, align, t, F_vocab_size, E_vocab_size, alpha):
     
-    #Second part
     kl = 0
     for e in range(E_vocab_size):
         for f in range(F_vocab_size): 
@@ -269,6 +267,7 @@ def elbo(english, french, t, F_vocab_size, E_vocab_size, alpha):
            second_p = loggamma(alpha*F_vocab_size) - loggamma(sum(t[:,e]))
            kl_e = first_p + second_p
     kl += kl_e
+    return elbo
 
 def plots():
     iterations = [1,2,3,4,5,6,7,8,9,10]
@@ -307,13 +306,12 @@ def plots():
     plt.show()
 
 
-def test(t, name, english, french):
+def test(t, q, name, english, french):
     
     #AER for test + writing to file
     gold_sets = aer.read_naacl_alignments('testing/answers/test.wa.nonullalign')
     predictions = []
 
-    print(french)
     with open(name, 'w') as f:
         
         for k in range(len(french)):
@@ -323,7 +321,7 @@ def test(t, name, english, french):
             for i in range(len(french_sen)):
                 old_val = 0
                 for j in range(len(english_sen)):
-                    value = t[french_sen[i], english_sen[j]] #* q[jump(j, i, len(english), len(french))]
+                    value = t[french_sen[i], english_sen[j]] * q[jump(j, i, len(english), len(french))]
                     if value >= old_val:
                         best = (j, i)
                         old_val = value
@@ -354,22 +352,22 @@ def main():
     #t = np.full((F_vocab_size, E_vocab_size + 1), 1/F_vocab_size)
 
     #Init t random
-    #t = init_t_random(english, french, E_vocab_size, F_vocab_size)
+    t = init_t_random(english, french, E_vocab_size, F_vocab_size)
 
     #t = init_t_ibm1_em(english, french, E_vocab_size, F_vocab_size, english_val, french_val)
     q = init_q()
     
-    t_ibm1 = init_t_pkl(english, french, E_vocab_size, F_vocab_size)
+    #t = init_t_pkl(english, french, E_vocab_size, F_vocab_size)
     
-    test(t_ibm1, 'ibm1.mle.naacl', english_test, french_test)
+    #test(t_ibm1, _, 'ibm1.mle.naacl', english_test, french_test)
 
     print('STARTING IBM MODEL 2')
     # Train using EM
     for i in range(IBM_2_ITERATIONS):
         t, q, ent = em_iteration_ibm2(english, french, t, q, E_vocab_size, F_vocab_size)
-        aer_metric(english_val, french_val, t, q)
+        #aer_metric(english_val, french_val, t, q)
         
-
+    test(t, q, 'ibm2.mle.naacl', english_test, french_test)
 
 if __name__ == '__main__':
     main()
