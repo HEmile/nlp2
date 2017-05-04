@@ -25,6 +25,7 @@ def main():
         
         ref_forest = earley(proj_forest, LimitFSA(5), start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('D(x,y)'))
         #print('Final forest: \n', ref_forest)
+        print(len(chi_src), len(eng_tgt))
         print(len(ref_forest))
     
     

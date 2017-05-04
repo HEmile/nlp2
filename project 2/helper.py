@@ -1,6 +1,6 @@
 from cfg import *
 from collections import defaultdict
-
+from operator import itemgetter
 
 def read_data(path):
     chinese = []
@@ -22,7 +22,10 @@ def read_lexicon_ibm(path):
                 continue
             words = line.split()
             x, y, ibm1, ibm2 = words
-            lexicon[x].add(y)
+            lexicon[x].add((y, ibm1))
+    for x in lexicon.keys():
+        lexicon[x] = sorted(lexicon[x], reverse=True, key=itemgetter(1))
+        lexicon[x] = [y[0] for y in lexicon[x][0:min(5, len(lexicon[x]))]]
     return lexicon
 
 def read_lexicon(path):
