@@ -1,4 +1,5 @@
 from cfg import *
+from fsa import *
 
 """
 An item in a CKY/Earley program.
