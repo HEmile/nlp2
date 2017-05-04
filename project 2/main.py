@@ -31,7 +31,7 @@ src_cfg = make_source_side_itg(lexicon)
 print(src_cfg)
 print(make_fsa('le chien noir'))
 
-src_str = 'petit chien'
+src_str = 'le petit chien'
 src_fsa = make_fsa(src_str)
 print(src_fsa)
 print(src_fsa)
@@ -39,20 +39,24 @@ print(src_cfg)
 
 # here I am going to use [S'] as the new start symbol
 forest = earley(src_cfg, src_fsa, start_symbol=Nonterminal('S'), sprime_symbol=Nonterminal("D(x)"))
+print("!!!!!!!!!!!!!!!!!!!!!")
 print(forest)
-len(forest)
+print(len(forest))
 
 # This is D(x)
 projected_forest = make_target_side_itg(forest, lexicon)
-len(projected_forest)
+print("!@$*(!*#($^!*@&#^*")
+print(projected_forest)
+print(len(projected_forest))
+
 tgt_str = 'little dog'
 tgt_fsa = make_fsa(tgt_str)
 print(tgt_fsa)
 
 # This is D(x, y)
-ref_forest = earley(projected_forest, tgt_fsa, start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('D(x,y)'))
+ref_forest = earley(projected_forest, LimitFSA(2), start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('D(x,y)'))
 print(ref_forest)
-len(ref_forest)
+print(len(ref_forest))
 '''
 
 def main():
@@ -80,3 +84,4 @@ def main():
     
 if __name__ == '__main__':
     main()
+

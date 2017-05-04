@@ -81,6 +81,26 @@ class FSA:
                 lines.append('origin=%d destination=%d label=%s' % (origin, destination, label))
         return '\n'.join(lines)
 
+class LimitFSA(FSA):
+    def __init__(self, n):
+        super().__init__()
+        self.add_state(initial=True, final=True)
+        for i in range(n):
+            self.add_state(initial=True, final=True)
+            self.add_arc(i, i + 1, 'WiLdCaRd')
+
+    def destination(self, origin: int, label: str):
+        """Return the destination from a certain `origin` state with a certain `label` (-1 means no destination available)"""
+        if origin >= len(self._states):
+            return -1
+        outgoing = self._states[origin]
+        if not outgoing:
+            return -1
+        if label == '':
+            return -1
+        return origin + 1
+
+
 def make_fsa(string: str) -> FSA:
     """Converts a sentence (string) to an FSA (labels are python str objects)"""
     fsa = FSA()

@@ -1,4 +1,5 @@
 from cfg import *
+from collections import defaultdict
 
 
 def read_data(path):
