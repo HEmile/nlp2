@@ -4,6 +4,7 @@ from fsa import *
 from earley import *
 from collections import defaultdict
 
+'''
 S = Nonterminal('S')
 X = Nonterminal('X')
 a = Terminal('a')
@@ -52,3 +53,30 @@ print(tgt_fsa)
 ref_forest = earley(projected_forest, tgt_fsa, start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('D(x,y)'))
 print(ref_forest)
 len(ref_forest)
+'''
+
+def main():
+    chinese, english = read_data('data/training.zh-en')
+    lexicon = read_lexicon_ibm('lexicon') #Waarom . bij beide elke entry
+    src_cfg = make_source_side_itg(lexicon)
+     
+    for i in range(len(chinese)):                         
+        chi_src = chinese[i]
+        eng_tgt = english[i]
+        src_fsa = make_fsa(chi_src)
+        #print('FSA-Source: \n', src_fsa)
+        
+        forest = earley(src_cfg, src_fsa, start_symbol=Nonterminal('S'), sprime_symbol=Nonterminal("D(x)")) 
+        #print('Forest: \n', forest)
+        
+        proj_forest = make_target_side_itg(forest, lexicon)
+        tgt_fsa = make_fsa(eng_tgt)
+        #print('FSA-target: \n', tgt_fsa)
+        
+        ref_forest = earley(proj_forest, tgt_fsa, start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('D(x,y)'))
+        #print('Final forest: \n', ref_forest)
+        print(len(ref_forest))
+    
+    
+if __name__ == '__main__':
+    main()

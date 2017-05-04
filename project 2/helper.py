@@ -1,5 +1,29 @@
 from cfg import *
 
+
+def read_data(path):
+    chinese = []
+    english = []
+    with open(path, encoding = 'utf-8') as f:
+        for l in f:
+            l = l.strip('\n')
+            sent = l.split(' ||| ')
+            chinese.append(sent[0])
+            english.append(sent[1])
+    return chinese, english
+
+def read_lexicon_ibm(path):
+    lexicon = defaultdict(set)
+    with open(path, encoding='utf-8') as istream:
+        for n, line in enumerate(istream):
+            line = line.strip()
+            if not line:
+                continue
+            words = line.split()
+            x, y, ibm1, ibm2 = words
+            lexicon[x].add(y)
+    return lexicon
+
 def read_lexicon(path):
     """
     Read translation dictionary from a file (one word pair per line) and return a dictionary
