@@ -1,3 +1,5 @@
+from functools import reduce # Valid in Python 2.6+, required in Python 3
+import operator
 class Symbol:
     pass
 
@@ -264,3 +266,50 @@ class CFG:
             for rule in rules:
                 lines.append(str(rule))
         return '\n'.join(lines)
+
+def toposort(cfg: CFG):
+    S = set(cfg.nonterminals)
+    S = S.union(cfg.terminals)
+    # for rule in cfg:
+    #     for symbol in rule.rhs:
+    #         S.remove(symbol)
+    L = []
+    temp = set()
+    def visit(n):
+        if n in temp:
+            print('ERROR: Not a cyclic graph!')
+        elif n in S:
+            temp.add(n)
+            for rule in cfg.get(n):
+                for m in rule.rhs:
+                    visit(m)
+            temp.remove(n)
+            S.remove(n)
+            L.append(n)
+
+    while S:
+        n = S.pop()
+        S.add(n)
+        visit(n)
+    return L
+
+
+def inside_value(cfg: CFG):
+    sorted = toposort(cfg)
+    I = {}
+    for v in sorted:
+        if v in cfg.terminals:
+            I[v] = 1
+        elif v in cfg.nonterminals:
+            rules = cfg.get(v)
+            if not rules:
+                I[v] = 0
+            else:
+                s = 0
+                for rule in rules:
+                    prod = 1
+                    for symbol in rule.rhs:
+                        prod *= I[symbol]
+                    s += prod
+                I[v] = s
+    return I[sorted[-1]]

@@ -5,6 +5,8 @@ from earley import *
 from collections import defaultdict
 
 
+LIMIT_TRANS_LENGTH = 20
+
 def main():
     chinese, english = read_data('data/training.zh-en')
     lexicon = read_lexicon_ibm('lexicon') #Waarom . bij beide elke entry
@@ -23,10 +25,12 @@ def main():
         tgt_fsa = make_fsa(eng_tgt)
         #print('FSA-target: \n', tgt_fsa)
         
-        ref_forest = earley(proj_forest, LimitFSA(5), start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('D(x,y)'))
+        ref_forest = earley(proj_forest, LimitFSA(LIMIT_TRANS_LENGTH), start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('D(x,y)'))
         #print('Final forest: \n', ref_forest)
         print(len(chi_src), len(eng_tgt))
-        print(len(ref_forest))
+        if len(ref_forest) > 0:
+            print("Possible Derivations:", inside_value(ref_forest))
+
     
     
 if __name__ == '__main__':
