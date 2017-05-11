@@ -34,6 +34,7 @@ def main():
         forests.append(ref_forest)
 
     with open("parse" + str(DATA_SET_INDEX) + '.pkl', 'wb') as f:
+        import pdb; pdb.set_trace()
         pickle.dump(forests, f)
         #print('Final forest: \n', ref_forest)
         # print(len(chi_src), len(eng_tgt))

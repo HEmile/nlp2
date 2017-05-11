@@ -1,4 +1,5 @@
 from cfg import *
+from fsa import *
 from collections import defaultdict
 from operator import itemgetter
 
