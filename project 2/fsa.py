@@ -81,24 +81,35 @@ class FSA:
                 lines.append('origin=%d destination=%d label=%s' % (origin, destination, label))
         return '\n'.join(lines)
 
-class LimitFSA(FSA):
-    def __init__(self, n):
-        super().__init__()
-        self.add_state(initial=True, final=True)
-        for i in range(n):
-            self.add_state(initial=True, final=True)
-            self.add_arc(i, i + 1, 'WiLdCaRd')
+class LengthConstraint(FSA):
+    """
+    A container for arcs. This implements a deterministic unweighted FSA.
+    """
 
-    def destination(self, origin: int, label: str):
+    def __init__(self, n: int, strict=False):
+        """
+        :param n: length constraint
+        :param strict: if True, accepts the language \Sigma^n, if False, accepts union of \Sigma^i for i from 0 to n
+        """
+        # each state is represented as a collection of outgoing arcs
+        # which are organised in a dictionary mapping a label to a destination state
+        super(LengthConstraint, self).__init__()
+        self.add_state(initial=True, final=not strict)
+        for i in range(n):
+            self.add_state(final=not strict)
+            self.add_arc(i, i + 1, '-WILDCARD-')
+        # we always make the last state final
+        self.make_final(n)
+
+    def destination(self, origin: int, label: str) -> int:
         """Return the destination from a certain `origin` state with a certain `label` (-1 means no destination available)"""
-        if origin >= len(self._states):
+        if origin + 1 < self.nb_states():
+            outgoing = self._states[origin]
+            if not outgoing:
+                return -1
+            return origin + 1
+        else:
             return -1
-        outgoing = self._states[origin]
-        if not outgoing:
-            return -1
-        if label == '':
-            return -1
-        return origin + 1
 
 
 def make_fsa(string: str) -> FSA:
