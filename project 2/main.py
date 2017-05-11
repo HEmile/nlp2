@@ -18,7 +18,7 @@ def main():
     chinese, english = read_data('data/training.zh-en')
     mn, mx = DATA_SET_INDEX * (len(chinese) // PARTITION), (DATA_SET_INDEX + 1) * (len(chinese) // PARTITION)
     chinese, english = chinese[mn: mx], english[mn: mx]
-    lexicon = read_lexicon_ibm('lexicon') #Waarom . bij beide elke entry
+    lexicon, weights = read_lexicon_ibm('lexicon') #Waarom . bij beide elke entry
     src_cfg = make_source_side_itg(lexicon)
     limitfsa = LengthConstraint(LIMIT_TRANS_LENGTH)
 
