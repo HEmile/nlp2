@@ -8,7 +8,7 @@ import pickletools
 import os
 
 
-LIMIT_TRANS_LENGTH = 10
+LIMIT_TRANS_LENGTH = 15
 
 PARTITION = 1
 
@@ -31,7 +31,8 @@ def main():
         index = mn + i
         chi_src = chinese[i]
         en_src = english[i]
-        if len(chi_src) > 10 or len(en_src) > 10:
+        if (len(chi_src) < 10 and len(en_src) < 10) \
+                or len(chi_src) > 15 or len(en_src) > 15:
             continue
         print(index)
         src_fsa = make_fsa(chi_src)
