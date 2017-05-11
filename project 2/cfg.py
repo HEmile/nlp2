@@ -313,3 +313,27 @@ def inside_value(cfg: CFG):
                     s += prod
                 I[v] = s
     return I[sorted[-1]]
+
+def outside_value(cfg: CFG, I):
+    sorted = toposort(cfg)
+    O = {}
+    for v in sorted:
+        O[v] = 0
+    O['S'] = 1 #Root node
+    for v in reversed(cfg):
+        rules = cfg.get(v)
+        for e in rules:
+            for u in e.rhs:
+                k = weight[e]*O[v]
+                for s in e.rhs: 
+                    if s is not u:
+                        k *= I[s]
+                O[u] += k
+    return O
+
+
+
+
+
+
+
