@@ -14,8 +14,9 @@ def read_data(path):
             english.append(sent[1])
     return chinese, english
 
-def read_lexicon_ibm(path):
+def read_lexicon_ibm(path, cut_vocab = 5):
     lexicon = defaultdict(set)
+    weights = defaultdict(set)
     with open(path, encoding='utf-8') as istream:
         for n, line in enumerate(istream):
             line = line.strip()
@@ -26,8 +27,12 @@ def read_lexicon_ibm(path):
             lexicon[x].add((y, ibm1))
     for x in lexicon.keys():
         lexicon[x] = sorted(lexicon[x], reverse=True, key=itemgetter(1))
-        lexicon[x] = [y[0] for y in lexicon[x][0:min(5, len(lexicon[x]))]]
-    return lexicon
+        tot = sum(lexicon[x], key=itemgetter(1))
+        lexicon[x] = lexicon[x][0:min(cut_vocab, len(lexicon[x]))]
+        for y, ibm1 in lexicon[x]:
+            weights[x, y] = ibm1 / tot
+        lexicon[x] = [y[0] for y in lexicon[x]]
+    return lexicon, weights
 
 def read_lexicon(path):
     """
