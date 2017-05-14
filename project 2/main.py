@@ -48,7 +48,7 @@ def main():
         #print('Final forest: \n', ref_forest)
         # print(len(chi_src), len(eng_tgt))
         # if len(ref_forest) > 0:
-        #     print("Possible Derivations:", inside_value(ref_forest))
+        #     print("Possible Derivations:", inside_value(ref_forest, weights, chi_src))
 
 
 if __name__ == '__main__':

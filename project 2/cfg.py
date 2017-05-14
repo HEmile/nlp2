@@ -1,5 +1,6 @@
 from functools import reduce # Valid in Python 2.6+, required in Python 3
 import operator
+from fsa import *
 class Symbol:
     pass
 
@@ -267,6 +268,37 @@ class CFG:
                 lines.append(str(rule))
         return '\n'.join(lines)
 
+
+def get_bispans(symbol: Span):
+    """
+    Returns the bispans associated with a symbol.
+
+    The first span returned corresponds to paths in the source FSA (typically a span in the source sentence),
+     the second span returned corresponds to either
+        a) paths in the target FSA (typically a span in the target sentence)
+        or b) paths in the length FSA
+    depending on the forest where this symbol comes from.
+    """
+    if not isinstance(symbol, Span):
+        raise ValueError('I need a span, got %s of type %s' % (symbol, type(symbol)))
+    s, start2, end2 = symbol.obj()  # this unwraps the target or length annotation
+    _, start1, end1 = s.obj()  # this unwraps the source annotation
+    return (start1, end1), (start2, end2)
+
+def weight(rule: Rule, chinese: list, weights: dict, cfg: CFG):
+    if len(rule.rhs) == 1:
+        t = rule.rhs[0]
+        if t in cfg.terminals:
+            cn = chinese[rule.lhs._start]
+            for c, e in weights.keys():
+                if c == cn:
+                    print(e)
+            print('Actual', t.root().obj())
+            return weights[cn, t.root().obj()]
+    return 1
+
+
+
 def toposort(cfg: CFG):
     S = set(cfg.nonterminals)
     S = S.union(cfg.terminals)
@@ -294,7 +326,7 @@ def toposort(cfg: CFG):
     return L
 
 
-def inside_value(cfg: CFG):
+def inside_value(cfg: CFG, weights: dict, chinese: list):
     sorted = toposort(cfg)
     I = {}
     for v in sorted:
@@ -307,14 +339,14 @@ def inside_value(cfg: CFG):
             else:
                 s = 0
                 for rule in rules:
-                    prod = 1
+                    prod = weight(rule, chinese, weights, cfg)
                     for symbol in rule.rhs:
                         prod *= I[symbol]
                     s += prod
                 I[v] = s
     return I[sorted[-1]]
 
-def outside_value(cfg: CFG, I):
+def outside_value(cfg: CFG, I: dict, chinese: list, weights: dict):
     sorted = toposort(cfg)
     O = {}
     for v in sorted:
@@ -324,7 +356,7 @@ def outside_value(cfg: CFG, I):
         rules = cfg.get(v)
         for e in rules:
             for u in e.rhs:
-                k = weight[e]*O[v]
+                k = weight(e, chinese, weights)*O[v]
                 for s in e.rhs: 
                     if s is not u:
                         k *= I[s]

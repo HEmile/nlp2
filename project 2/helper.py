@@ -24,10 +24,13 @@ def read_lexicon_ibm(path, cut_vocab = 5):
                 continue
             words = line.split()
             x, y, ibm1, ibm2 = words
-            lexicon[x].add((y, ibm1))
+            try:
+                lexicon[x].add((y, float(ibm1)))
+            except ValueError:
+                pass
     for x in lexicon.keys():
         lexicon[x] = sorted(lexicon[x], reverse=True, key=itemgetter(1))
-        tot = sum(lexicon[x], key=itemgetter(1))
+        tot = sum([z[1] for z in lexicon[x]])
         lexicon[x] = lexicon[x][0:min(cut_vocab, len(lexicon[x]))]
         for y, ibm1 in lexicon[x]:
             weights[x, y] = ibm1 / tot
