@@ -2,15 +2,36 @@ from collections import defaultdict
 
 class FSA:
     """
-    A container for arcs. This implements a deterministic unweighted FSA.
+    A container for arcs. This implements a non-deterministic unweighted FSA.
     """
+
+    class State:
+        def __init__(self):
+            self.by_destination = defaultdict(set)
+            self.by_label = defaultdict(set)
+
+        def __eq__(self, other):
+            return type(self) == type(other) and self.by_destination == other.by_destination and self.by_label == other.by_label
+
+        def __ne__(self, other):
+            return not (self == other)
 
     def __init__(self):
         # each state is represented as a collection of outgoing arcs
         # which are organised in a dictionary mapping a label to a destination state
+        # each state is a tuple (by_destination and by_label)
+        #  by_destination is a dictionary that maps from destination to a set of labels
+        #  by_label is a dictionary that maps from label to a set of destinations
         self._states = []
         self._initial = set()
         self._final = set()
+        self._arcs = set()
+
+    def __eq__(self, other):
+        return type(self) == type(other) and self._states == other._states and self._initial == other._initial and self._final == other._final
+
+    def __ne__(self, other):
+        return not (self == other)
 
     def nb_states(self):
         """Number of states"""
@@ -18,12 +39,13 @@ class FSA:
 
     def nb_arcs(self):
         """Number of arcs"""
-        return sum(len(outgoing) for outgoing in self._states)
+        return len(self._arcs)
 
     def add_state(self, initial=False, final=False) -> int:
         """Add a state marking it as initial and/or final and return its 0-based id"""
         sid = len(self._states)
-        self._states.append(defaultdict(int))
+        self._states.append(FSA.State())
+        #self._arcs.append(defaultdict(str))
         if initial:
             self.make_initial(sid)
         if final:
@@ -32,17 +54,20 @@ class FSA:
 
     def add_arc(self, origin, destination, label: str):
         """Add an arc between `origin` and `destination` with a certain label (states should be added before calling this method)"""
-        outgoing = self._states[origin]
-        outgoing[label] = destination
+        self._states[origin].by_destination[destination].add(label)
+        self._states[origin].by_label[label].add(destination)
+        self._arcs.add((origin, destination, label))
 
-    def destination(self, origin: int, label: str) -> int:
-        """Return the destination from a certain `origin` state with a certain `label` (-1 means no destination available)"""
+    def destinations(self, origin: int, label: str) -> set:
         if origin >= len(self._states):
-            return -1
-        outgoing = self._states[origin]
-        if not outgoing:
-            return -1
-        return outgoing.get(label, -1)
+            return set()
+        return self._states[origin].by_label.get(label, set())
+
+    def labels(self, origin: int, destination: int) -> set:
+        """Return the label of an arc or None if the arc does not exist"""
+        if origin >= len(self._arcs):
+            return set()
+        return self._states[origin].by_destination.get(destination, set())
 
     def make_initial(self, state: int):
         """Mark a state as initial"""
@@ -68,18 +93,22 @@ class FSA:
         """Iterates over final states"""
         return iter(self._final)
 
-    def iterarcs(self, origin: int):
-        return self._states[origin].items() if origin < len(self._states) else []
+    def iterarcs(self, origin: int, group_by='destination') -> dict:
+        if origin + 1 < self.nb_states():
+            return self._states[origin].by_destination.items() if group_by == 'destination' else self._states[origin].by_label.items()
+        return dict()
 
     def __str__(self):
         lines = ['states=%d' % self.nb_states(),
                  'initial=%s' % ' '.join(str(s) for s in self._initial),
                  'final=%s' % ' '.join(str(s) for s in self._final),
                  'arcs=%d' % self.nb_arcs()]
-        for origin, arcs in enumerate(self._states):
-            for label, destination in sorted(arcs.items(), key=lambda pair: pair[1]):
-                lines.append('origin=%d destination=%d label=%s' % (origin, destination, label))
+        for origin, state in enumerate(self._states):
+            for destination, labels in sorted(state.by_destination.items(), key=lambda pair: pair[0]):
+                for label in sorted(labels):
+                    lines.append('origin=%d destination=%d label=%s' % (origin, destination, label))
         return '\n'.join(lines)
+
 
 class LengthConstraint(FSA):
     """

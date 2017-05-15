@@ -1,8 +1,7 @@
-from cfg import *
 from helper import *
-from fsa import *
-from earley import *
+from libitg import *
 from collections import defaultdict
+from feature_helper import gradient
 import pickle
 import os
 
@@ -21,6 +20,9 @@ def main():
     src_cfg = make_source_side_itg(lexicon)
     limitfsa = LengthConstraint(LIMIT_TRANS_LENGTH)
 
+    w = defaultdict(lambda: 1) #Initialize the weight dictionary with 1s
+    delta = 0.001
+
     if not os.path.exists('parses'):
         os.makedirs('parses')
 
@@ -30,25 +32,22 @@ def main():
         index = mn + i
         chi_src = chinese[i]
         en_src = english[i]
-        if (len(chi_src) < 10 and len(en_src) < 10) \
-                or len(chi_src) > 15 or len(en_src) > 15:
+        if len(chi_src) > 15 or len(en_src) > 15:
             continue
         print(index)
         src_fsa = make_fsa(chi_src)
+        tgt_fsa = make_fsa(en_src)
 
         forest = earley(src_cfg, src_fsa, start_symbol=Nonterminal('S'), sprime_symbol=Nonterminal("D(x)")) 
 
         proj_forest = make_target_side_itg(forest, lexicon)
 
-        ref_forest = earley(proj_forest, limitfsa, start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('D(x,y)'))
+        dxn = earley(proj_forest, limitfsa, start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('Dn(x)'))
+        dxy = earley(proj_forest, tgt_fsa, start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('D(x, y)'))
+        dw = gradient(dxn, dxy, src_fsa, w)
 
-        with open("parses/" + str(index) + '.pkl', 'wb') as f:
-            pickle.dump(ref_forest, f)
-
-        #print('Final forest: \n', ref_forest)
-        # print(len(chi_src), len(eng_tgt))
-        if len(ref_forest) > 0:
-            print("Possible Derivations:", inside_value(ref_forest, weights, chi_src))
+        for k, dwk in dw.items():
+            w[k] += delta * dwk
 
 
 if __name__ == '__main__':

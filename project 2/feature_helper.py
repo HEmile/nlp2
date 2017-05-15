@@ -1,5 +1,4 @@
-from cfg import *
-from fsa import *
+from libitg import *
 from collections import defaultdict
 
 
@@ -65,7 +64,10 @@ def simple_features(edge: Rule, src_fsa: FSA, eps=Terminal('-EPS-'),
             fmap['type:terminal'] += 1.0
             # we could have IBM1 log probs for the traslation pair or ins/del
             (s1, s2), (t1, t2) = get_bispans(symbol)
-            src_word = src_fsa.label(s1, s2)
+            src_word_ = src_fsa.labels(s1, s2)
+            for c in src_word_:
+                src_word = c
+                break
             tgt_word = get_terminal_string(symbol)
             if symbol.root() == eps:  # symbol.root() gives us a Terminal free of annotation
                 fmap['type:deletion'] += 1.0
@@ -109,8 +111,117 @@ def featurize_edges(forest, src_fsa,
 # Returns the dot product of the weights
 def weight_function(edge, fmap, wmap) -> float:
     sum = 0
-    for k, v in fmap[edge].values():
+    for k, v in fmap[edge].items():
         sum += wmap[k] * v
     return sum
 
 
+def get_weight_f(fmap, wmap):
+    return lambda x: weight_function(x, fmap, wmap)
+
+def weight(rule: Rule, chinese: list, weights: dict, cfg: CFG):
+    if len(rule.rhs) == 1:
+        t = rule.rhs[0]
+        if t in cfg.terminals:
+            cn = chinese[rule.lhs._start]
+            return weights[cn, t.root().obj()]
+    return 1
+
+
+
+def toposort(cfg: CFG):
+    S = set(cfg.nonterminals)
+    S = S.union(cfg.terminals)
+    # for rule in cfg:
+    #     for symbol in rule.rhs:
+    #         S.remove(symbol)
+    L = []
+    temp = set()
+    def visit(n):
+        if n in temp:
+            print('ERROR: Not a cyclic graph!')
+        elif n in S:
+            temp.add(n)
+            for rule in cfg.get(n):
+                for m in rule.rhs:
+                    visit(m)
+            temp.remove(n)
+            S.remove(n)
+            L.append(n)
+
+    while S:
+        n = S.pop()
+        S.add(n)
+        visit(n)
+    return L
+
+
+# Instead of passing the weights dictionary here, we need to compute the _log potential_
+# This is the dot product of the feature weights and the feature vector at some edge
+# This feature vector is created for each edge before this.
+def inside_value(cfg: CFG, fweight):
+    std = toposort(cfg)
+    I = {}
+    for v in std:
+        if v in cfg.terminals:
+            I[v] = 1
+        elif v in cfg.nonterminals:
+            rules = cfg.get(v)
+            if not rules:
+                I[v] = 0
+            else:
+                s = 0
+                for rule in rules:
+                    prod = fweight(rule)
+                    for symbol in rule.rhs:
+                        prod *= I[symbol]
+                    s += prod
+                I[v] = s
+    return I
+
+
+def outside_value(cfg: CFG, I: dict, fweight):
+    std = toposort(cfg)
+    O = {}
+    for v in std:
+        O[v] = 0
+    O['S'] = 1 #Root node
+    for v in reversed(cfg):
+        rules = cfg.get(v)
+        for e in rules:
+            for u in e.rhs:
+                k = fweight(e)*O[v]
+                for s in e.rhs:
+                    if s is not u:
+                        k *= I[s]
+                O[u] += k
+    return O
+
+
+def expected_features(forest: CFG, edge_features: dict, wmap: dict) -> dict:
+    weight_f = get_weight_f(edge_features, wmap)
+    inside = inside_value(forest, weight_f)
+    outside = outside_value(forest, inside, weight_f)
+    expf = defaultdict(float)
+    for rule in forest:
+        k = outside[rule.lhs]
+        for v in rule.rhs:
+            k *= inside[v]
+        for f, v in edge_features[rule].items():
+            expf[f] += k * v
+    return expf
+
+
+def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict) -> dict:
+    fmapxn = featurize_edges(dxn, src_fsa)
+    fmapxy = featurize_edges(dxy, src_fsa)
+
+    expfxn = expected_features(dxn, fmapxn, weight)
+    expfxy = expected_features(dxy, fmapxy, weight)
+
+    gradient = defaultdict(float)
+    features = set(expfxn.keys())
+    features.union(expfxy.keys())
+    for f in features:
+        gradient[f] = expfxy[f] - expfxn[f]
+    return gradient

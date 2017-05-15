@@ -204,7 +204,7 @@ def scan(fsa: FSA, item: Item, eps_symbol: Terminal=Terminal('-EPS-')) -> list:
     if eps_symbol and item.next.root() == eps_symbol:
         return [item.advance(item.dot)]
     else:
-        destination = fsa.destination(origin=item.dot, label=item.next.root().obj())  # we call .obj() because labels are strings, not Terminals
+        destination = fsa.destinations(origin=item.dot, label=item.next.root().obj())  # we call .obj() because labels are strings, not Terminals
         if destination < 0:  # cannot scan the symbol from this state
             return []
         return [item.advance(destination)]
