@@ -1,5 +1,6 @@
 from libitg import *
 from collections import defaultdict
+from nltk.util import skipgrams
 
 
 def get_terminal_string(symbol: Symbol):
@@ -57,7 +58,7 @@ def simple_features(edge: Rule, src_fsa: FSA, eps=Terminal('-EPS-'), weights_ibm
         fmap['type:span_target_rhs'] += (rt2-rt1)
         
         #skip bigrams
-        #?
+        
     else:  # unary
         symbol = edge.rhs[0]
         if symbol.is_terminal():  # terminal rule
@@ -104,6 +105,14 @@ def simple_features(edge: Rule, src_fsa: FSA, eps=Terminal('-EPS-'), weights_ibm
         else:  # S -> X
             fmap['top'] += 1.0
     return fmap
+
+def skip_bigrams(chinese) -> dict:
+    skip_dict = dict()
+    for sen in chinese:
+        skips = list(skipgrams(sen.split(),2, 1))
+        for skip in skips:
+            skip_dict[skip] += 1
+    return skip_dict
 
 def featurize_edges(forest, src_fsa, 
                     sparse_del=False, sparse_ins=False, sparse_trans=False,

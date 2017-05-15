@@ -836,7 +836,7 @@ def make_target_side_itg(source_forest: CFG, lexicon: dict) -> CFG:
                         x_str = r.rhs[0].root().obj()  # this is the underlying string of a Terminal
                         targets = lexicon.get(x_str, set())
                         if not targets:
-                            pass  # TODO: do something with unknown words?
+                            yield Rule(r.lhs, [Terminal('-UNK-')])
                         else:
                             for y_str in targets:
                                 yield Rule(r.lhs, [r.rhs[0].translate(y_str)])  # translation
