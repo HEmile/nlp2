@@ -16,7 +16,7 @@ def read_data(path):
 
 def read_lexicon_ibm(path, cut_vocab = 5):
     lexicon = defaultdict(set)
-    weights = defaultdict(set)
+    weights = defaultdict(float)
     with open(path, encoding='utf-8') as istream:
         for n, line in enumerate(istream):
             line = line.strip()

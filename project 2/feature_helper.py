@@ -97,26 +97,11 @@ def featurize_edges(forest, src_fsa,
     return edge2fmap
 
 
+# Returns the dot product of the weights
 def weight_function(edge, fmap, wmap) -> float:
-    pass  # dot product of fmap and wmap  (working in log-domain)
-
-
-
-def top_sort(forest: CFG) -> list:
-    """Returns ordered list of nodes according to topsort order in an acyclic forest"""
-    pass
-
-def inside_algorithm(forest: CFG, tsort: list, edge_weights: dict) -> dict:
-    """Returns the inside weight of each node"""
-    pass
-
-def outside_algorithm(forest: CFG, tsort:list, edge_weights: dict, inside: dict) -> dict:
-    """Returns the outside weight of each node"""
-    pass
-
-def expected_feature_vector(forest: CFG, inside: dict, outside: dict, edge_features: dict) -> dict:
-    """Returns an expected feature vector (here a sparse python dictionary)"""
-    pass
-
+    sum = 0
+    for k, v in fmap[edge].values():
+        sum += wmap[k] * v
+    return sum
 
 

@@ -290,10 +290,6 @@ def weight(rule: Rule, chinese: list, weights: dict, cfg: CFG):
         t = rule.rhs[0]
         if t in cfg.terminals:
             cn = chinese[rule.lhs._start]
-            for c, e in weights.keys():
-                if c == cn:
-                    print(e)
-            print('Actual', t.root().obj())
             return weights[cn, t.root().obj()]
     return 1
 
@@ -326,6 +322,9 @@ def toposort(cfg: CFG):
     return L
 
 
+# Instead of passing the weights dictionary here, we need to compute the _log potential_
+# This is the dot product of the feature weights and the feature vector at some edge
+# This feature vector is created for each edge before this.
 def inside_value(cfg: CFG, weights: dict, chinese: list):
     sorted = toposort(cfg)
     I = {}
