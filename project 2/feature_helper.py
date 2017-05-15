@@ -24,7 +24,7 @@ def get_bispans(symbol: Span):
     _, start1, end1 = s.obj()  # this unwraps the source annotation
     return (start1, end1), (start2, end2)
 
-def simple_features(edge: Rule, src_fsa: FSA, eps=Terminal('-EPS-'), 
+def simple_features(edge: Rule, src_fsa: FSA, eps=Terminal('-EPS-'), weights_ibm,  
                     sparse_del=False, sparse_ins=False, sparse_trans=False) -> dict:
     """
     Featurises an edge given
@@ -73,7 +73,9 @@ def simple_features(edge: Rule, src_fsa: FSA, eps=Terminal('-EPS-'),
                 fmap['type:deletion'] += 1.0
                 # dense versions (for initial development phase)
                 # TODO: use IBM1 prob
-                #ff['ibm1:del:logprob'] += 
+                if (src_word, tgt_word) in weights_ibm.keys():
+                    ibm_prob = weights_ibm[(src_word, tgt_word)]
+                    fmap['ibm1:del:logprob'] += ibm_prob
                 # sparse version
                 if sparse_del:
                     fmap['del:%s' % src_word] += 1.0
@@ -82,7 +84,9 @@ def simple_features(edge: Rule, src_fsa: FSA, eps=Terminal('-EPS-'),
                     fmap['type:insertion'] += 1.0
                     # dense version
                     # TODO: use IBM1 prob
-                    #ff['ibm1:ins:logprob'] += 
+                    if (src_word, tgt_word) in weights_ibm.keys():
+                        ibm_prob = weights_ibm[(src_word, tgt_word)]
+                        map['ibm1:ins:logprob'] += ibm_prob                    
                     # sparse version
                     if sparse_ins:
                         fmap['ins:%s' % tgt_word] += 1.0
@@ -90,7 +94,9 @@ def simple_features(edge: Rule, src_fsa: FSA, eps=Terminal('-EPS-'),
                     fmap['type:translation'] += 1.0
                     # dense version
                     # TODO: use IBM1 prob
-                    #ff['ibm1:x2y:logprob'] += 
+                    if (src_word, tgt_word) in weights_ibm.keys():
+                        ibm_prob = weights_ibm[(src_word, tgt_word)]
+                        fmap['ibm1:x2y:logprob'] += ibm_prob
                     #ff['ibm1:y2x:logprob'] += 
                     # sparse version                    
                     if sparse_trans:
@@ -106,7 +112,6 @@ def featurize_edges(forest, src_fsa,
     for edge in forest:
         edge2fmap[edge] = simple_features(edge, src_fsa, eps, sparse_del, sparse_ins, sparse_trans)
     return edge2fmap
-
 
 # Returns the dot product of the weights
 def weight_function(edge, fmap, wmap) -> float:
