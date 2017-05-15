@@ -43,13 +43,22 @@ def simple_features(edge: Rule, src_fsa: FSA, eps=Terminal('-EPS-'),
         (rs1, rs2), (rt1, rt2) = get_bispans(edge.rhs[1])  # right of RHS        
         # TODO: double check these, assign features, add some more
         if ls1 == ls2:  # deletion of source left child
-            pass
+            fmap['type:del_lhs'] += 1.0
         if rs1 == rs2:  # deletion of source right child
-            pass
+            fmap['type:del_rhs'] += 1.0
         if ls2 == rs1:  # monotone
-            pass
+            fmap['type:mon'] += 1.0
         if ls1 == rs2:  # inverted
-            pass        
+            fmap['type:inv'] += 1.0
+        
+        #Span features:
+        fmap['type:span_source_lhs'] += (ls2-ls1)
+        fmap['type:span_source_rhs'] += (rs2-rs1)
+        fmap['type:span_target_lhs'] += (lt2-lt1)
+        fmap['type:span_target_rhs'] += (rt2-rt1)
+        
+        #skip bigrams
+        #?
     else:  # unary
         symbol = edge.rhs[0]
         if symbol.is_terminal():  # terminal rule
