@@ -38,16 +38,20 @@ def main():
         src_fsa = make_fsa(chi_src)
         tgt_fsa = make_fsa(en_src)
 
-        forest = earley(src_cfg, src_fsa, start_symbol=Nonterminal('S'), sprime_symbol=Nonterminal("D(x)")) 
+        forest = earley(src_cfg, src_fsa, start_symbol=Nonterminal('S'), sprime_symbol=Nonterminal("D(x)"))
 
         proj_forest = make_target_side_itg(forest, lexicon)
 
-        dxn = earley(proj_forest, limitfsa, start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('Dn(x)'))
         dxy = earley(proj_forest, tgt_fsa, start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('D(x, y)'))
+        if len(dxy) == 0:
+            print('Skipping ungenerated y')
+            continue
+        dxn = earley(proj_forest, limitfsa, start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('Dn(x)'))
         dw = gradient(dxn, dxy, src_fsa, w)
 
         for k, dwk in dw.items():
             w[k] += delta * dwk
+
 
 
 if __name__ == '__main__':

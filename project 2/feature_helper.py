@@ -136,6 +136,7 @@ def weight_function(edge, fmap, wmap) -> float:
 def get_weight_f(fmap, wmap):
     return lambda x: weight_function(x, fmap, wmap)
 
+
 def weight(rule: Rule, chinese: list, weights: dict, cfg: CFG):
     if len(rule.rhs) == 1:
         t = rule.rhs[0]
@@ -143,7 +144,6 @@ def weight(rule: Rule, chinese: list, weights: dict, cfg: CFG):
             cn = chinese[rule.lhs._start]
             return weights[cn, t.root().obj()]
     return 1
-
 
 
 def toposort(cfg: CFG):
@@ -202,7 +202,7 @@ def outside_value(cfg: CFG, I: dict, fweight):
     O = {}
     for v in std:
         O[v] = 0
-    O['S'] = 1 #Root node
+    O['S'] = 1  # Root node
     for v in reversed(cfg):
         rules = cfg.get(v)
         for e in rules:
@@ -242,3 +242,7 @@ def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict) -> dict:
     for f in features:
         gradient[f] = expfxy[f] - expfxn[f]
     return gradient
+
+
+def viterbi(dxn: CFG, src_fsa: FSA, weight: dict) -> CFG:
+    fmapxn = featurize_edges(dxn, src_fsa)
