@@ -25,7 +25,7 @@ def get_bispans(symbol: Span):
     _, start1, end1 = s.obj()  # this unwraps the source annotation
     return (start1, end1), (start2, end2)
 
-def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, eps=Terminal('-EPS-'),
+def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, eps=Terminal('-EPS-'),
                     sparse_del=False, sparse_ins=False, sparse_trans=False) -> dict:
     """
     Featurises an edge given
@@ -103,7 +103,7 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, eps=Terminal('-EPS-')
                             
                     #skip bigrams:
                     for key in skip_dict.keys():
-                        if scr_word in key:
+                        if src_word in key:
                             fmap['skip:%s' % (src_word)] += skip_dict[key]
         else:  # S -> X
             fmap['top'] += 1.0
@@ -122,7 +122,7 @@ def featurize_edges(forest, src_fsa, weights_ibm,
                     eps=Terminal('-EPS-')) -> dict:
     edge2fmap = dict()
     for edge in forest:
-        edge2fmap[edge] = simple_features(edge, src_fsa, weights_ibm, eps, sparse_del, sparse_ins, sparse_trans)
+        edge2fmap[edge] = simple_features(edge, src_fsa, weights_ibm, skip_dict, eps, sparse_del, sparse_ins, sparse_trans)
     return edge2fmap
 
 # Returns the dot product of the weights

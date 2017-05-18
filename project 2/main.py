@@ -2,7 +2,7 @@ from helper import *
 from earley import *
 from libitg import *
 from collections import defaultdict
-from feature_helper import gradient
+from feature_helper import gradient, skip_bigrams
 import pickle
 import os
 
@@ -15,9 +15,10 @@ DATA_SET_INDEX = 0 #Divide dataset in 9 partitions
 
 def main():
     chinese, english = read_data('data/training.zh-en')
+    skip_dict = skip_bigrams(chinese)
     mn, mx = DATA_SET_INDEX * (len(chinese) // PARTITION), (DATA_SET_INDEX + 1) * (len(chinese) // PARTITION)
     chinese, english = chinese[mn: mx], english[mn: mx]
-    lexicon, weights = read_lexicon_ibm('lexicon') #Waarom . bij beide elke entry
+    lexicon, weights = read_lexicon_ibm('lexicon')
     src_cfg = make_source_side_itg(lexicon)
     limitfsa = InsertionConstraint(LIMIT_TRANS_LENGTH)
 
