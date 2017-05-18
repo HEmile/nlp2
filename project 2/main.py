@@ -1,4 +1,5 @@
 from helper import *
+from earley import *
 from libitg import *
 from collections import defaultdict
 from feature_helper import gradient
@@ -6,7 +7,7 @@ import pickle
 import os
 
 
-LIMIT_TRANS_LENGTH = 15
+LIMIT_TRANS_LENGTH = 3
 
 PARTITION = 1
 
@@ -18,7 +19,7 @@ def main():
     chinese, english = chinese[mn: mx], english[mn: mx]
     lexicon, weights = read_lexicon_ibm('lexicon') #Waarom . bij beide elke entry
     src_cfg = make_source_side_itg(lexicon)
-    limitfsa = LengthConstraint(LIMIT_TRANS_LENGTH)
+    limitfsa = InsertionConstraint(LIMIT_TRANS_LENGTH)
 
     w = defaultdict(lambda: 1) #Initialize the weight dictionary with 1s
     delta = 0.001
@@ -32,26 +33,27 @@ def main():
         index = mn + i
         chi_src = chinese[i]
         en_src = english[i]
-        if len(chi_src) > 15 or len(en_src) > 15:
+        if len(chi_src) > 20 or len(en_src) > 20:
             continue
         print(index)
         src_fsa = make_fsa(chi_src)
         tgt_fsa = make_fsa(en_src)
 
         forest = earley(src_cfg, src_fsa, start_symbol=Nonterminal('S'), sprime_symbol=Nonterminal("D(x)"))
+        dx = earley(forest, limitfsa, start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('Di(x)'), eps_symbol=None)
+        print(dx)
 
-        proj_forest = make_target_side_itg(forest, lexicon)
+        dix = make_target_side_itg(dx, lexicon)
 
-        dxy = earley(proj_forest, tgt_fsa, start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('D(x, y)'))
+        dxy = earley(dix, tgt_fsa, start_symbol=Nonterminal("Di(x)"), sprime_symbol=Nonterminal('D(x, y)'))
         if len(dxy) == 0:
             print('Skipping ungenerated y')
             continue
-        dxn = earley(proj_forest, limitfsa, start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('Dn(x)'))
-        dw = gradient(dxn, dxy, src_fsa, w)
+
+        dw = gradient(dix, dxy, src_fsa, w, weights)
 
         for k, dwk in dw.items():
             w[k] += delta * dwk
-
 
 
 if __name__ == '__main__':

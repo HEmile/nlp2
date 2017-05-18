@@ -25,7 +25,7 @@ def get_bispans(symbol: Span):
     _, start1, end1 = s.obj()  # this unwraps the source annotation
     return (start1, end1), (start2, end2)
 
-def simple_features(edge: Rule, src_fsa: FSA, eps=Terminal('-EPS-'), weights_ibm,  
+def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, eps=Terminal('-EPS-'),
                     sparse_del=False, sparse_ins=False, sparse_trans=False) -> dict:
     """
     Featurises an edge given
@@ -117,12 +117,12 @@ def skip_bigrams(chinese) -> dict:
             skip_dict[skip] += 1
     return skip_dict
 
-def featurize_edges(forest, src_fsa, 
+def featurize_edges(forest, src_fsa, weights_ibm,
                     sparse_del=False, sparse_ins=False, sparse_trans=False,
                     eps=Terminal('-EPS-')) -> dict:
     edge2fmap = dict()
     for edge in forest:
-        edge2fmap[edge] = simple_features(edge, src_fsa, eps, sparse_del, sparse_ins, sparse_trans)
+        edge2fmap[edge] = simple_features(edge, src_fsa, weights_ibm, eps, sparse_del, sparse_ins, sparse_trans)
     return edge2fmap
 
 # Returns the dot product of the weights
@@ -229,9 +229,9 @@ def expected_features(forest: CFG, edge_features: dict, wmap: dict) -> dict:
     return expf
 
 
-def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict) -> dict:
-    fmapxn = featurize_edges(dxn, src_fsa)
-    fmapxy = featurize_edges(dxy, src_fsa)
+def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict) -> dict:
+    fmapxn = featurize_edges(dxn, src_fsa, weights_ibm)
+    fmapxy = featurize_edges(dxy, src_fsa, weights_ibm)
 
     expfxn = expected_features(dxn, fmapxn, weight)
     expfxy = expected_features(dxy, fmapxy, weight)
@@ -244,5 +244,5 @@ def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict) -> dict:
     return gradient
 
 
-def viterbi(dxn: CFG, src_fsa: FSA, weight: dict) -> CFG:
-    fmapxn = featurize_edges(dxn, src_fsa)
+# def viterbi(dxn: CFG, src_fsa: FSA, weight: dict) -> CFG:
+#     fmapxn = featurize_edges(dxn, src_fsa)
