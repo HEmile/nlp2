@@ -57,8 +57,6 @@ def simple_features(edge: Rule, src_fsa: FSA, eps=Terminal('-EPS-'), weights_ibm
         fmap['type:span_target_lhs'] += (lt2-lt1)
         fmap['type:span_target_rhs'] += (rt2-rt1)
         
-        #skip bigrams
-        
     else:  # unary
         symbol = edge.rhs[0]
         if symbol.is_terminal():  # terminal rule
@@ -102,6 +100,11 @@ def simple_features(edge: Rule, src_fsa: FSA, eps=Terminal('-EPS-'), weights_ibm
                     # sparse version                    
                     if sparse_trans:
                         fmap['trans:%s/%s' % (src_word, tgt_word)] += 1.0
+                            
+                    #skip bigrams:
+                    for key in skip_dict.keys():
+                        if scr_word in key:
+                            fmap['skip:%s' % (src_word)] += skip_dict[key]
         else:  # S -> X
             fmap['top'] += 1.0
     return fmap
