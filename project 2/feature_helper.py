@@ -199,17 +199,17 @@ def inside_value(cfg: CFG, fweight):
     Imax = {}
     for v in std:
         if v in cfg.terminals:
-            Iplus[v] = 1
+            Iplus[v] = 0
         elif v in cfg.nonterminals:
             rules = cfg.get(v)
             if not rules:
-                Iplus[v] = 0
-                Imax[v] = 0
+                Iplus[v] = -sys.maxsize
+                Imax[v] = -sys.maxsize
             else:
                 s = 0
                 mx = -sys.maxsize
                 for rule in rules:
-                    prod = fweight(rule)
+                    prod = fweight(rule)  # fweight(rule)
                     for symbol in rule.rhs:
                         prod += Iplus[symbol]
                     s = np.logaddexp(s, prod)
@@ -229,7 +229,7 @@ def outside_value(cfg: CFG, I: dict, fweight):
         rules = cfg.get(v)
         for e in rules:
             for u in e.rhs:
-                k = fweight(e)*O[v]
+                k = fweight(e) + O[v]
                 for s in e.rhs:
                     if s is not u:
                         k += I[s]
@@ -268,7 +268,7 @@ def viterbi(Imax, dxn, weight):
                             mx2 = 1
                     elif Imax[v] > mx2:
                         mx2 = Imax[v]
-                mx2 *= weight[r]
+                mx2 += weight[r]
                 if mx2 > mx1:
                     argmax1 = r
                     mx1 = mx2
