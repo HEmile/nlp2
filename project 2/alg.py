@@ -172,3 +172,7 @@ def language_of_fsa(fsa: FSA, eps_str='-EPS-') -> set:
         visit_fsa_state(initial, tuple())
 
     return strings
+
+def language_of_cfg(cfg:CFG, start_symbol, eps='-EPS-'):
+    fsa = forest_to_fsa(cfg, start_symbol)
+    return language_of_fsa(fsa, eps)

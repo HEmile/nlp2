@@ -1,6 +1,9 @@
 from libitg import *
 from collections import defaultdict
 from nltk.util import skipgrams
+import numpy as np
+import sys
+from alg import *
 
 
 def get_terminal_string(symbol: Symbol):
@@ -24,6 +27,21 @@ def get_bispans(symbol: Span):
     s, start2, end2 = symbol.obj()  # this unwraps the target or length annotation
     _, start1, end1 = s.obj()  # this unwraps the source annotation
     return (start1, end1), (start2, end2)
+
+
+def get_source_word(fsa: FSA, origin: int, destination: int) -> str:
+    """Returns the python string representing a source word from origin to destination (assuming there's a single one)"""
+    labels = list(fsa.labels(origin, destination))
+    assert len(labels) == 1, 'Use this function only when you know the path is unambiguous, found %d labels %s for (%d, %d)' % (len(labels), labels, origin, destination)
+    return labels[0]
+
+
+def get_target_word(symbol: Symbol):
+    """Returns the python string underlying a certain terminal (thus unwrapping all span annotations)"""
+    if not symbol.is_terminal():
+        raise ValueError('I need a terminal, got %s of type %s' % (symbol, type(symbol)))
+    return symbol.root().obj()
+
 
 def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, eps=Terminal('-EPS-'),
                     sparse_del=False, sparse_ins=False, sparse_trans=False) -> dict:
@@ -63,33 +81,31 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, eps=Termin
             fmap['type:terminal'] += 1.0
             # we could have IBM1 log probs for the traslation pair or ins/del
             (s1, s2), (t1, t2) = get_bispans(symbol)
-            src_word_ = src_fsa.labels(s1, s2)
-            for c in src_word_:
-                src_word = c
-                break
-            tgt_word = get_terminal_string(symbol)
             if symbol.root() == eps:  # symbol.root() gives us a Terminal free of annotation
+                src_word = get_source_word(src_fsa, s1, s2)
                 fmap['type:deletion'] += 1.0
                 # dense versions (for initial development phase)
                 # TODO: use IBM1 prob
-                if (src_word, tgt_word) in weights_ibm.keys():
-                    ibm_prob = weights_ibm[(src_word, tgt_word)]
+                if (src_word, eps) in weights_ibm.keys():
+                    ibm_prob = weights_ibm[(src_word, eps)]
                     fmap['ibm1:del:logprob'] += ibm_prob
                 # sparse version
                 if sparse_del:
                     fmap['del:%s' % src_word] += 1.0
-            else:                
+            else:
+                tgt_word = get_target_word(symbol)
                 if s1 == s2:  # has not consumed any source word, must be an eps rule
                     fmap['type:insertion'] += 1.0
                     # dense version
                     # TODO: use IBM1 prob
-                    if (src_word, tgt_word) in weights_ibm.keys():
-                        ibm_prob = weights_ibm[(src_word, tgt_word)]
+                    if (eps, tgt_word) in weights_ibm.keys():
+                        ibm_prob = weights_ibm[(eps, tgt_word)]
                         map['ibm1:ins:logprob'] += ibm_prob                    
                     # sparse version
                     if sparse_ins:
                         fmap['ins:%s' % tgt_word] += 1.0
                 else:
+                    src_word = get_source_word(src_fsa, s1, s2)
                     fmap['type:translation'] += 1.0
                     # dense version
                     # TODO: use IBM1 prob
@@ -109,15 +125,16 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, eps=Termin
             fmap['top'] += 1.0
     return fmap
 
+
 def skip_bigrams(chinese) -> dict:
-    skip_dict = dict()
+    skip_dict = defaultdict(int)
     for sen in chinese:
         skips = list(skipgrams(sen.split(),2, 1))
         for skip in skips:
             skip_dict[skip] += 1
     return skip_dict
 
-def featurize_edges(forest, src_fsa, weights_ibm,
+def featurize_edges(forest, src_fsa, weights_ibm, skip_dict,
                     sparse_del=False, sparse_ins=False, sparse_trans=False,
                     eps=Terminal('-EPS-')) -> dict:
     edge2fmap = dict()
@@ -178,23 +195,28 @@ def toposort(cfg: CFG):
 # This feature vector is created for each edge before this.
 def inside_value(cfg: CFG, fweight):
     std = toposort(cfg)
-    I = {}
+    Iplus = {}
+    Imax = {}
     for v in std:
         if v in cfg.terminals:
-            I[v] = 1
+            Iplus[v] = 1
         elif v in cfg.nonterminals:
             rules = cfg.get(v)
             if not rules:
-                I[v] = 0
+                Iplus[v] = 0
+                Imax[v] = 0
             else:
                 s = 0
+                mx = -sys.maxsize
                 for rule in rules:
                     prod = fweight(rule)
                     for symbol in rule.rhs:
-                        prod *= I[symbol]
-                    s += prod
-                I[v] = s
-    return I
+                        prod += Iplus[symbol]
+                    s = np.logaddexp(s, prod)
+                    mx = max(prod, mx)
+                Iplus[v] = s
+                Imax[v] = mx
+    return Iplus, Imax
 
 
 def outside_value(cfg: CFG, I: dict, fweight):
@@ -210,31 +232,65 @@ def outside_value(cfg: CFG, I: dict, fweight):
                 k = fweight(e)*O[v]
                 for s in e.rhs:
                     if s is not u:
-                        k *= I[s]
-                O[u] += k
+                        k += I[s]
+                O[u] = np.logaddexp(O[u], k)
     return O
 
 
 def expected_features(forest: CFG, edge_features: dict, wmap: dict) -> dict:
     weight_f = get_weight_f(edge_features, wmap)
-    inside = inside_value(forest, weight_f)
-    outside = outside_value(forest, inside, weight_f)
+    Iplus, Imax = inside_value(forest, weight_f)
+    outside = outside_value(forest, Iplus, weight_f)
     expf = defaultdict(float)
     for rule in forest:
         k = outside[rule.lhs]
         for v in rule.rhs:
-            k *= inside[v]
+            k *= Iplus[v]
         for f, v in edge_features[rule].items():
             expf[f] += k * v
-    return expf
+    return expf, Imax
 
 
-def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict) -> dict:
-    fmapxn = featurize_edges(dxn, src_fsa, weights_ibm)
-    fmapxy = featurize_edges(dxy, src_fsa, weights_ibm)
+def viterbi(Imax, dxn, weight):
+    std = toposort(dxn)
+    u = std[-1]
+    def iternew(u):
+        queue = [u]
+        while queue:
+            u = queue.pop()
+            mx1 = -sys.maxsize
+            argmax1 = None
+            for r in dxn[u]:
+                mx2 = -sys.maxsize
+                for v in r.rhs:
+                    if v.is_terminal():
+                        if 1 > mx2:
+                            mx2 = 1
+                    elif Imax[v] > mx2:
+                        mx2 = Imax[v]
+                mx2 *= weight[r]
+                if mx2 > mx1:
+                    argmax1 = r
+                    mx1 = mx2
+            yield argmax1
+            for v in reversed(argmax1.rhs):  # Ensure leftmost derivation
+                if not v.is_terminal():
+                    queue.append(v)
+    cfg = CFG(iternew(u))
+    return language_of_cfg(cfg, u)
 
-    expfxn = expected_features(dxn, fmapxn, weight)
-    expfxy = expected_features(dxy, fmapxy, weight)
+
+def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, skip_dict) -> dict:
+    fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict)
+
+    expfxn, Imax = expected_features(dxn, fmapxn, weight)
+    print(viterbi(Imax, dxn, weight))
+
+    if len(dxy) == 0:
+        print('Skipping ungenerated y')
+        return
+    fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict)
+    expfxy, _ = expected_features(dxy, fmapxy, weight)
 
     gradient = defaultdict(float)
     features = set(expfxn.keys())
@@ -242,7 +298,3 @@ def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict) 
     for f in features:
         gradient[f] = expfxy[f] - expfxn[f]
     return gradient
-
-
-# def viterbi(dxn: CFG, src_fsa: FSA, weight: dict) -> CFG:
-#     fmapxn = featurize_edges(dxn, src_fsa)

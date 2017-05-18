@@ -422,7 +422,7 @@ class FSA:
         return iter(self._final)
 
     def iterarcs(self, origin: int, group_by='destination') -> dict:
-        if origin + 1 < self.nb_states():
+        if origin + 1 <= self.nb_states():
             return self._states[origin].by_destination.items() if group_by == 'destination' else self._states[origin].by_label.items()
         return dict()
 

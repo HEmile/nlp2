@@ -89,7 +89,7 @@ def make_target_side_itg(source_forest: CFG, lexicon: dict) -> CFG:
                     if r.rhs[0].is_terminal():  # terminal rules
                         x_str = r.rhs[0].root().obj()  # this is the underlying string of a Terminal
                         targets = lexicon.get(x_str, set())
-                        yield Rule(r.lhs, [r.rhs[0].translate('-EPS-')])
+                        # yield Rule(r.lhs, [r.rhs[0].translate('-EPS-')])
                         if not targets:
                             yield Rule(r.lhs, [r.rhs[0].translate('-UNK-')])
                         else:

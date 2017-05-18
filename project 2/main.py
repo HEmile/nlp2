@@ -37,24 +37,22 @@ def main():
         if len(chi_src) > 20 or len(en_src) > 20:
             continue
         print(index)
+        print(en_src)
         src_fsa = make_fsa(chi_src)
         tgt_fsa = make_fsa(en_src)
 
         forest = earley(src_cfg, src_fsa, start_symbol=Nonterminal('S'), sprime_symbol=Nonterminal("D(x)"))
         dx = earley(forest, limitfsa, start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('Di(x)'), eps_symbol=None)
-        print(dx)
+        # print(dx)
 
         dix = make_target_side_itg(dx, lexicon)
 
         dxy = earley(dix, tgt_fsa, start_symbol=Nonterminal("Di(x)"), sprime_symbol=Nonterminal('D(x, y)'))
-        if len(dxy) == 0:
-            print('Skipping ungenerated y')
-            continue
 
-        dw = gradient(dix, dxy, src_fsa, w, weights)
-
-        for k, dwk in dw.items():
-            w[k] += delta * dwk
+        dw = gradient(dix, dxy, src_fsa, w, weights, skip_dict)
+        if dw:
+            for k, dwk in dw.items():
+                w[k] += delta * dwk
 
 
 if __name__ == '__main__':
