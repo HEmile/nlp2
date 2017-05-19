@@ -11,10 +11,10 @@ LIMIT_TRANS_LENGTH = 3
 
 PARTITION = 4
 
-DATA_SET_INDEX = 2 #Divide dataset in 9 partitions
+DATA_SET_INDEX = 0 #Divide dataset in 9 partitions
 
 
-def main(parse=True, featurise=True):
+def main(parse=False, featurise=True):
     chinese, english = read_data('data/training.zh-en')
     skip_dict = skip_bigrams(chinese)
     mn, mx = DATA_SET_INDEX * (len(chinese) // PARTITION), (DATA_SET_INDEX + 1) * (len(chinese) // PARTITION)
@@ -40,8 +40,6 @@ def main(parse=True, featurise=True):
         en_src = english[i]
         if len(chi_src.split()) > 10 or len(en_src.split()) > 10:
             continue
-        print(index)
-        print(en_src)
         src_fsa = make_fsa(chi_src)
         tgt_fsa = make_fsa(en_src)
 
@@ -68,10 +66,13 @@ def main(parse=True, featurise=True):
             else:
                 continue
 
-        # dw = gradient(dix, dxy, src_fsa, w, weights, skip_dict, index, featurise)
-        # if dw:
-        #     for k, dwk in dw.items():
-        #         w[k] += delta * dwk
+        print(index)
+        print(chi_src)
+        print(en_src)
+        dw = gradient(dix, dxy, src_fsa, w, weights, skip_dict, index, featurise)
+        if dw:
+            for k, dwk in dw.items():
+                w[k] += delta * dwk
 
 
 if __name__ == '__main__':
