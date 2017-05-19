@@ -9,11 +9,12 @@ import os
 
 LIMIT_TRANS_LENGTH = 3
 
-PARTITION = 1
+PARTITION = 4
 
-DATA_SET_INDEX = 0 #Divide dataset in 9 partitions
+DATA_SET_INDEX = 2 #Divide dataset in 9 partitions
 
-def main():
+
+def main(parse=True, featurise=True):
     chinese, english = read_data('data/training.zh-en')
     skip_dict = skip_bigrams(chinese)
     mn, mx = DATA_SET_INDEX * (len(chinese) // PARTITION), (DATA_SET_INDEX + 1) * (len(chinese) // PARTITION)
@@ -28,31 +29,49 @@ def main():
     if not os.path.exists('parses'):
         os.makedirs('parses')
 
+    if not os.path.exists('features'):
+        os.makedirs('features')
+
     print('Parsing sentences', mn, 'to', mx)
      
     for i in range(len(chinese)):
         index = mn + i
         chi_src = chinese[i]
         en_src = english[i]
-        if len(chi_src) > 20 or len(en_src) > 20:
+        if len(chi_src.split()) > 10 or len(en_src.split()) > 10:
             continue
         print(index)
         print(en_src)
         src_fsa = make_fsa(chi_src)
         tgt_fsa = make_fsa(en_src)
 
-        forest = earley(src_cfg, src_fsa, start_symbol=Nonterminal('S'), sprime_symbol=Nonterminal("D(x)"))
-        dx = earley(forest, limitfsa, start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('Di(x)'), eps_symbol=None)
-        # print(dx)
+        path = "parses/" + str(index) + '.pkl'
 
-        dix = make_target_side_itg(dx, lexicon)
+        if parse:
+            forest = earley(src_cfg, src_fsa, start_symbol=Nonterminal('S'), sprime_symbol=Nonterminal("D(x)"))
+            _dix = earley(forest, limitfsa, start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('Di(x)'), eps_symbol=None)
+            # print(dx)
 
-        dxy = earley(dix, tgt_fsa, start_symbol=Nonterminal("Di(x)"), sprime_symbol=Nonterminal('D(x, y)'))
+            dix = make_target_side_itg(_dix, lexicon)
 
-        dw = gradient(dix, dxy, src_fsa, w, weights, skip_dict)
-        if dw:
-            for k, dwk in dw.items():
-                w[k] += delta * dwk
+            dxy = earley(dix, tgt_fsa, start_symbol=Nonterminal("Di(x)"), sprime_symbol=Nonterminal('D(x, y)'))
+
+            if len(dxy) == 0 or len(dix) == 0:
+                continue
+
+            with open(path, 'wb') as f:
+                pickle.dump((dix, dxy), f)
+        else:
+            if os.path.exists(path):
+                with open(path, 'rb') as f:
+                    dix, dxy = pickle.load(f)
+            else:
+                continue
+
+        # dw = gradient(dix, dxy, src_fsa, w, weights, skip_dict, index, featurise)
+        # if dw:
+        #     for k, dwk in dw.items():
+        #         w[k] += delta * dwk
 
 
 if __name__ == '__main__':

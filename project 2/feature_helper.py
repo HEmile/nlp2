@@ -4,6 +4,7 @@ from nltk.util import skipgrams
 import numpy as np
 import sys
 from alg import *
+import pickle
 
 
 def get_terminal_string(symbol: Symbol):
@@ -224,7 +225,7 @@ def outside_value(cfg: CFG, I: dict, fweight):
     O = {}
     for v in std:
         O[v] = 0
-    O['S'] = 1  # Root node
+    O['S'] = 0  # Root node
     for v in reversed(cfg):
         rules = cfg.get(v)
         for e in rules:
@@ -280,8 +281,15 @@ def viterbi(Imax, dxn, weight):
     return language_of_cfg(cfg, u)
 
 
-def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, skip_dict) -> dict:
-    fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict)
+def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, skip_dict, index, get_features=False) -> dict:
+    if get_features:
+        fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict)
+        fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict)
+        with open('features/' + str(index) + '.pkl', 'wb') as f:
+            pickle.dump((fmapxn, fmapxy), f)
+    else:
+        with open('features/' + str(index) + '.pkl', 'rb') as f:
+            fmapxn, fmapxy = pickle.load(f)
 
     expfxn, Imax = expected_features(dxn, fmapxn, weight)
     print(viterbi(Imax, dxn, weight))
@@ -289,7 +297,6 @@ def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, 
     if len(dxy) == 0:
         print('Skipping ungenerated y')
         return
-    fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict)
     expfxy, _ = expected_features(dxy, fmapxy, weight)
 
     gradient = defaultdict(float)
