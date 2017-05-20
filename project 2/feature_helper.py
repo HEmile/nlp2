@@ -294,11 +294,11 @@ def viterbi(Imax, dxn, weight):
 
 
 def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, skip_dict, index, get_features=False) -> dict:
-    print('weight ins:opening', weight['ins:opening'])
+    #print('weight ins:opening', weight['ins:opening'])
     print('weight type:insertion', weight['type:insertion'])
     if get_features:
-        fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict, sparse_ins=True)
-        fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_ins=True, use_bispans=True)
+        fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict, sparse_ins=False)
+        fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_ins=False, use_bispans=True)
         with open('features/' + str(index) + '.pkl', 'wb') as f:
             pickle.dump((fmapxn, fmapxy), f)
     else:
@@ -313,7 +313,7 @@ def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, 
         return
     expfxy, _ = expected_features(dxy, fmapxy, weight)
 
-    print('ins:opening', expfxn['ins:opening'], expfxy['ins:opening'])
+    #print('ins:opening', expfxn['ins:opening'], expfxy['ins:opening'])
     print('type:insertion', expfxn['type:insertion'], expfxy['type:insertion'])
 
     gradient = defaultdict(float)
@@ -322,7 +322,7 @@ def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, 
     
     for f in features:
         gradient[f] = expfxy[f] - expfxn[f] # - lambda/math.pow(sigma, 2) #L2-regulariser
-    print('gradient ins:opening', gradient['ins:opening'])
+    #print('gradient ins:opening', gradient['ins:opening'])
     print('gradient type:insertion', gradient['type:insertion'])
 
     return gradient
