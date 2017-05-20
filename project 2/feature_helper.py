@@ -13,10 +13,16 @@ def get_terminal_string(symbol: Symbol):
         raise ValueError('I need a terminal, got %s of type %s' % (symbol, type(symbol)))
     return symbol.root().obj()
 
+def get_spans(symbol: Span):
+    if not isinstance(symbol, Span):
+        raise ValueError('I need a span, got %s of type %s' % (symbol, type(symbol)))
+    _, start2, end2 = symbol.obj()  # this unwraps the target or length annotation
+    return start2, end2
+
 def get_bispans(symbol: Span):
     """
-    Returns the bispans associated with a symbol. 
-    
+    Returns the bispans associated with a symbol.
+
     The first span returned corresponds to paths in the source FSA (typically a span in the source sentence),
      the second span returned corresponds to either
         a) paths in the target FSA (typically a span in the target sentence)
@@ -28,7 +34,6 @@ def get_bispans(symbol: Span):
     s, start2, end2 = symbol.obj()  # this unwraps the target or length annotation
     _, start1, end1 = s.obj()  # this unwraps the source annotation
     return (start1, end1), (start2, end2)
-
 
 def get_source_word(fsa: FSA, origin: int, destination: int) -> str:
     """Returns the python string representing a source word from origin to destination (assuming there's a single one)"""
@@ -44,12 +49,13 @@ def get_target_word(symbol: Symbol):
     return symbol.root().obj()
 
 
-def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, eps=Terminal('-EPS-'),
+def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispans=False, eps=Terminal('-EPS-'),
                     sparse_del=False, sparse_ins=False, sparse_trans=False) -> dict:
     """
     Featurises an edge given
         * rule and spans
         * src sentence as an FSA
+        * use_bispans is used when the target y is available
         * TODO: target sentence length n
         * TODO: extract IBM1 dense features
     crucially, note that the target sentence y is not available!    
@@ -58,8 +64,20 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, eps=Termin
     if len(edge.rhs) == 2:  # binary rule
         fmap['type:binary'] += 1.0
         # here we could have sparse features of the source string as a function of spans being concatenated
-        (ls1, ls2), (lt1, lt2) = get_bispans(edge.rhs[0])  # left of RHS
-        (rs1, rs2), (rt1, rt2) = get_bispans(edge.rhs[1])  # right of RHS        
+        if use_bispans:
+            (ls1, ls2), (lt1, lt2) = get_bispans(edge.rhs[0])  # left of RHS
+            (rs1, rs2), (rt1, rt2) = get_bispans(edge.rhs[1])  # right of RHS
+
+            fmap['type:span_source_lhs'] += (ls2-ls1)
+            fmap['type:span_source_rhs'] += (rs2-rs1)
+            fmap['type:span_target_lhs'] += (lt2-lt1)
+            fmap['type:span_target_rhs'] += (rt2-rt1)
+        else:
+            ls1, ls2 = get_spans(edge.rhs[0])  # left of RHS
+            rs1, rs2 = get_spans(edge.rhs[1])  # right of RHS
+
+            fmap['type:span_lhs'] += (ls2-ls1)
+            fmap['type:span_rhs'] += (rs2-rs1)
         # TODO: double check these, assign features, add some more
         if ls1 == ls2:  # deletion of source left child
             fmap['type:del_lhs'] += 1.0
@@ -69,19 +87,15 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, eps=Termin
             fmap['type:mon'] += 1.0
         if ls1 == rs2:  # inverted
             fmap['type:inv'] += 1.0
-        
-        #Span features:
-        fmap['type:span_source_lhs'] += (ls2-ls1)
-        fmap['type:span_source_rhs'] += (rs2-rs1)
-        fmap['type:span_target_lhs'] += (lt2-lt1)
-        fmap['type:span_target_rhs'] += (rt2-rt1)
-        
     else:  # unary
         symbol = edge.rhs[0]
         if symbol.is_terminal():  # terminal rule
             fmap['type:terminal'] += 1.0
-            # we could have IBM1 log probs for the traslation pair or ins/del
-            (s1, s2), (t1, t2) = get_bispans(symbol)
+            # we could have IBM1 log probs for the translation pair or ins/del
+            if use_bispans:
+                (s1, s2), (t1, t2) = get_bispans(symbol)
+            else:
+                s1, s2 = get_spans(symbol)
             if symbol.root() == eps:  # symbol.root() gives us a Terminal free of annotation
                 src_word = get_source_word(src_fsa, s1, s2)
                 fmap['type:deletion'] += 1.0
@@ -101,7 +115,7 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, eps=Termin
                     # TODO: use IBM1 prob
                     if (eps, tgt_word) in weights_ibm.keys():
                         ibm_prob = weights_ibm[(eps, tgt_word)]
-                        map['ibm1:ins:logprob'] += ibm_prob                    
+                        fmap['ibm1:ins:logprob'] += ibm_prob
                     # sparse version
                     if sparse_ins:
                         fmap['ins:%s' % tgt_word] += 1.0
@@ -121,7 +135,7 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, eps=Termin
                     #skip bigrams:
                     for key in skip_dict.keys():
                         if src_word in key:
-                            fmap['skip:%s' % (src_word)] += skip_dict[key]
+                            fmap['skip:%s' % src_word] += skip_dict[key]
         else:  # S -> X
             fmap['top'] += 1.0
     return fmap
@@ -135,12 +149,12 @@ def skip_bigrams(chinese) -> dict:
             skip_dict[skip] += 1
     return skip_dict
 
-def featurize_edges(forest, src_fsa, weights_ibm, skip_dict,
+def featurize_edges(forest, src_fsa, weights_ibm, skip_dict, use_bispans=False,
                     sparse_del=False, sparse_ins=False, sparse_trans=False,
                     eps=Terminal('-EPS-')) -> dict:
     edge2fmap = dict()
     for edge in forest:
-        edge2fmap[edge] = simple_features(edge, src_fsa, weights_ibm, skip_dict, eps, sparse_del, sparse_ins, sparse_trans)
+        edge2fmap[edge] = simple_features(edge, src_fsa, weights_ibm, skip_dict, use_bispans, eps, sparse_del, sparse_ins, sparse_trans)
     return edge2fmap
 
 # Returns the dot product of the weights
@@ -284,7 +298,7 @@ def viterbi(Imax, dxn, weight):
 def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, skip_dict, index, get_features=False) -> dict:
     if get_features:
         fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict)
-        fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict)
+        fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, use_bispans=True)
         with open('features/' + str(index) + '.pkl', 'wb') as f:
             pickle.dump((fmapxn, fmapxy), f)
     else:
