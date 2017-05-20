@@ -9,9 +9,11 @@ import os
 
 LIMIT_TRANS_LENGTH = 3
 
-PARTITION = 4
+PARTITION = 16
 
-DATA_SET_INDEX = 0 #Divide dataset in 9 partitions
+DATA_SET_INDEX = 2 #Divide dataset in 9 partitions
+
+SENTENCE_LENGTH = 10
 
 
 def main(parse=True, featurise=True):
@@ -40,7 +42,7 @@ def main(parse=True, featurise=True):
         chi_spl = chi_src.split()
         en_spl = en_src.split()
 
-        if len(chi_spl) > 15 or len(en_spl) > 15:
+        if len(chi_spl) > SENTENCE_LENGTH or len(en_spl) > SENTENCE_LENGTH:
             continue
 
         def map_unk(splt, vocab):
