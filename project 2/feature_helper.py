@@ -210,12 +210,10 @@ def toposort(cfg: CFG):
 # This feature vector is created for each edge before this.
 def inside_value(cfg: CFG, fweight):
     std = toposort(cfg)
-    Iplus = {}
+    Iplus = defaultdict(float)
     Imax = {}
     for v in std:
-        if v in cfg.terminals:
-            Iplus[v] = 0
-        elif v in cfg.nonterminals:
+        if not v.is_terminal():
             rules = cfg.get(v)
             if not rules:
                 Iplus[v] = -sys.maxsize
@@ -238,11 +236,10 @@ def outside_value(cfg: CFG, I: dict, fweight):
     std = toposort(cfg)
     O = {}
     for v in std:
-        O[v] = 0
-    O['S'] = 0  # Root node
-    for v in reversed(cfg):
-        rules = cfg.get(v)
-        for e in rules:
+        O[v] = -sys.maxsize
+    O[std[-1]] = 0  # Root node
+    for v in reversed(std):
+        for e in cfg.get(v):
             for u in e.rhs:
                 k = fweight(e) + O[v]
                 for s in e.rhs:
@@ -260,7 +257,7 @@ def expected_features(forest: CFG, edge_features: dict, wmap: dict) -> dict:
     for rule in forest:
         k = outside[rule.lhs]
         for v in rule.rhs:
-            k *= Iplus[v]
+            k += Iplus[v]
         for f, v in edge_features[rule].items():
             expf[f] += k * v
     return expf, Imax
@@ -296,9 +293,11 @@ def viterbi(Imax, dxn, weight):
 
 
 def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, skip_dict, index, get_features=False) -> dict:
+    print('weight ins:opening', weight['ins:opening'])
+    print('weight type:insertion', weight['type:insertion'])
     if get_features:
-        fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict)
-        fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, use_bispans=True)
+        fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict, sparse_ins=True)
+        fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_ins=True, use_bispans=True)
         with open('features/' + str(index) + '.pkl', 'wb') as f:
             pickle.dump((fmapxn, fmapxy), f)
     else:
@@ -313,9 +312,15 @@ def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, 
         return
     expfxy, _ = expected_features(dxy, fmapxy, weight)
 
+    print('ins:opening', expfxn['ins:opening'], expfxy['ins:opening'])
+    print('type:insertion', expfxn['type:insertion'], expfxy['type:insertion'])
+
     gradient = defaultdict(float)
     features = set(expfxn.keys())
     features.union(expfxy.keys())
     for f in features:
         gradient[f] = expfxy[f] - expfxn[f]
+    print('gradient ins:opening', gradient['ins:opening'])
+    print('gradient type:insertion', gradient['type:insertion'])
+
     return gradient
