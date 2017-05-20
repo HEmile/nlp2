@@ -14,9 +14,10 @@ def read_data(path):
             english.append(sent[1])
     return chinese, english
 
-def read_lexicon_ibm(path, cut_vocab = 5):
+def read_lexicon_ibm(path, cut_vocab = 5, insert_types=7):
     lexicon = defaultdict(set)
     weights = defaultdict(float)
+    null_alligned = []
     with open(path, encoding='utf-8') as istream:
         for n, line in enumerate(istream):
             line = line.strip()
@@ -25,6 +26,8 @@ def read_lexicon_ibm(path, cut_vocab = 5):
             words = line.split()
             x, y, ibm1, ibm2 = words
             try:
+                # if x == '<NULL>':
+                #     null_alligned.append((y, float(ibm1)))
                 lexicon[x].add((y, float(ibm1)))
             except ValueError:
                 pass
@@ -38,11 +41,19 @@ def read_lexicon_ibm(path, cut_vocab = 5):
             en_vocab.add(y)
         lexicon[x] = [y[0] for y in lexicon[x]]
         lexicon[x].append('-EPS-')
+
+    null_alligned = sorted(null_alligned, reverse=True, key=itemgetter(1))
+    tot = sum([z[1] for z in null_alligned])
+    null_alligned = null_alligned[0:min(insert_types, len(null_alligned))]
+    for y, ibm1 in null_alligned:
+        weights['-EPS-', y] = ibm1 / tot
+    null_alligned = [y[0] for y in null_alligned]
+
     ch_vocab = set(lexicon.keys())
-    lexicon['-EPS-'] = list(en_vocab)
-    lexicon['-EPS-'].append('-UNK-')
+    null_alligned.append('-UNK-')
+
     lexicon['-UNK-'] = ['-UNK-', '-EPS-']
-    return lexicon, weights, ch_vocab, en_vocab
+    return lexicon, weights, ch_vocab, en_vocab, null_alligned
 
 def read_lexicon(path):
     """

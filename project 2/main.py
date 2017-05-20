@@ -21,8 +21,7 @@ def main(parse=True, featurise=True):
     skip_dict = skip_bigrams(chinese)
     mn, mx = DATA_SET_INDEX * (len(chinese) // PARTITION), (DATA_SET_INDEX + 1) * (len(chinese) // PARTITION)
     chinese, english = chinese[mn: mx], english[mn: mx]
-    lexicon, weights, ch_vocab, en_vocab = read_lexicon_ibm('lexicon')
-    src_cfg = make_source_side_finite_itg(lexicon)
+    lexicon, weights, ch_vocab, en_vocab, null_alligned = read_lexicon_ibm('lexicon')
 
     w = defaultdict(lambda: 0.0001) #Initialize the weight dictionary with 1s
     delta = 0.00001
@@ -59,9 +58,11 @@ def main(parse=True, featurise=True):
             chi_src = map_unk(chi_spl, ch_vocab)
             en_src = map_unk(en_spl, en_vocab)
 
-            lexicon['-EPS-'] = set()
-            for c in chi_spl:
-                lexicon['-EPS-'] = lexicon['-EPS-'].union(lexicon[c])
+            lexicon['-EPS-'] = set(null_alligned)
+            for c in chi_spl:  # Belangrijk voor report: Deze toevoegen zorgt ervoor dat heel veel parset
+                lexicon['-EPS-'] = lexicon['-EPS-'].union([lexicon[c][0]])
+
+            src_cfg = make_source_side_finite_itg(lexicon)
 
             forest = earley(src_cfg, src_fsa, start_symbol=Nonterminal('S'), sprime_symbol=Nonterminal("D(x)"))
 
