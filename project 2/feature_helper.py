@@ -68,10 +68,11 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
             (ls1, ls2), (lt1, lt2) = get_bispans(edge.rhs[0])  # left of RHS
             (rs1, rs2), (rt1, rt2) = get_bispans(edge.rhs[1])  # right of RHS
 
+            #May not use T anymore, see notebook
             fmap['type:span_source_lhs'] += (ls2-ls1)
             fmap['type:span_source_rhs'] += (rs2-rs1)
-            fmap['type:span_target_lhs'] += (lt2-lt1)
-            fmap['type:span_target_rhs'] += (rt2-rt1)
+            #fmap['type:span_target_lhs'] += (lt2-lt1)
+            #fmap['type:span_target_rhs'] += (rt2-rt1)
         else:
             ls1, ls2 = get_spans(edge.rhs[0])  # left of RHS
             rs1, rs2 = get_spans(edge.rhs[1])  # right of RHS
@@ -257,7 +258,7 @@ def expected_features(forest: CFG, edge_features: dict, wmap: dict) -> dict:
     for rule in forest:
         k = outside[rule.lhs]
         for v in rule.rhs:
-            k += Iplus[v]
+            k += np.log(Iplus[v])
         for f, v in edge_features[rule].items():
             expf[f] += k * v
     return expf, Imax
@@ -318,8 +319,9 @@ def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, 
     gradient = defaultdict(float)
     features = set(expfxn.keys())
     features.union(expfxy.keys())
+    
     for f in features:
-        gradient[f] = expfxy[f] - expfxn[f]
+        gradient[f] = expfxy[f] - expfxn[f] # - lambda/math.pow(sigma, 2) #L2-regulariser
     print('gradient ins:opening', gradient['ins:opening'])
     print('gradient type:insertion', gradient['type:insertion'])
 

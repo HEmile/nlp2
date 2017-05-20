@@ -9,9 +9,9 @@ import os
 
 LIMIT_TRANS_LENGTH = 3
 
-PARTITION = 16
+PARTITION = 6
 
-DATA_SET_INDEX = 0 #Divide dataset in 9 partitions
+DATA_SET_INDEX = 5 #Divide dataset in 9 partitions
 
 SENTENCE_LENGTH = 10
 
