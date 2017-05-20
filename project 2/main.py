@@ -11,7 +11,7 @@ LIMIT_TRANS_LENGTH = 3
 
 PARTITION = 16
 
-DATA_SET_INDEX = 2 #Divide dataset in 9 partitions
+DATA_SET_INDEX = 0 #Divide dataset in 9 partitions
 
 SENTENCE_LENGTH = 10
 
@@ -24,8 +24,8 @@ def main(parse=True, featurise=True):
     lexicon, weights, ch_vocab, en_vocab = read_lexicon_ibm('lexicon')
     src_cfg = make_source_side_finite_itg(lexicon)
 
-    w = defaultdict(lambda: 1) #Initialize the weight dictionary with 1s
-    delta = 0.001
+    w = defaultdict(lambda: 0.0001) #Initialize the weight dictionary with 1s
+    delta = 0.00001
 
     if not os.path.exists('parses'):
         os.makedirs('parses')
@@ -45,20 +45,24 @@ def main(parse=True, featurise=True):
         if len(chi_spl) > SENTENCE_LENGTH or len(en_spl) > SENTENCE_LENGTH:
             continue
 
-        def map_unk(splt, vocab):
-            for i in range(len(splt)):
-                if splt[i] not in vocab:
-                    splt[i] = '-UNK-'
-            return ' '.join(splt)
-        chi_src = map_unk(chi_spl, ch_vocab)
-        en_src = map_unk(en_spl, en_vocab)
-
         src_fsa = make_fsa(chi_src)
         tgt_fsa = make_fsa(en_src)
 
         path = "parses/" + str(index) + '.pkl'
 
         if parse:
+            def map_unk(splt, vocab):
+                for i in range(len(splt)):
+                    if splt[i] not in vocab:
+                        splt[i] = '-UNK-'
+                return ' '.join(splt)
+            chi_src = map_unk(chi_spl, ch_vocab)
+            en_src = map_unk(en_spl, en_vocab)
+
+            lexicon['-EPS-'] = set()
+            for c in chi_spl:
+                lexicon['-EPS-'] = lexicon['-EPS-'].union(lexicon[c])
+
             forest = earley(src_cfg, src_fsa, start_symbol=Nonterminal('S'), sprime_symbol=Nonterminal("D(x)"))
 
             dx = make_target_side_finite_itg(forest, lexicon)
