@@ -28,14 +28,21 @@ def read_lexicon_ibm(path, cut_vocab = 5):
                 lexicon[x].add((y, float(ibm1)))
             except ValueError:
                 pass
+    en_vocab = set()
     for x in lexicon.keys():
         lexicon[x] = sorted(lexicon[x], reverse=True, key=itemgetter(1))
         tot = sum([z[1] for z in lexicon[x]])
         lexicon[x] = lexicon[x][0:min(cut_vocab, len(lexicon[x]))]
         for y, ibm1 in lexicon[x]:
             weights[x, y] = ibm1 / tot
+            en_vocab.add(y)
         lexicon[x] = [y[0] for y in lexicon[x]]
-    return lexicon, weights
+        lexicon[x].append('-EPS-')
+    ch_vocab = set(lexicon.keys())
+    lexicon['-EPS-'] = list(en_vocab)
+    lexicon['-EPS-'].append('-UNK-')
+    lexicon['-UNK-'] = ['-UNK-', '-EPS-']
+    return lexicon, weights, ch_vocab, en_vocab
 
 def read_lexicon(path):
     """

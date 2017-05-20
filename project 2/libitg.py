@@ -180,3 +180,78 @@ class InsertionConstraint(FSA):
                 return super(InsertionConstraint, self).destinations(origin, self._wildcard_str)
         else:
             return set()
+
+def make_source_side_finite_itg(lexicon, s_str='S', x_str='X', t_str='T', d_str='D', i_str='I', eps_str='-EPS-') -> CFG:
+    """
+    Constructs the source side of an ITG from a dictionary.
+    This ITG differs from the standard one in a key sense:
+        * insertions are not unbounded: they are "anchored" to a lexical context (a translation pair), see below.
+    """
+    S = Nonterminal(s_str)
+    X = Nonterminal(x_str)
+    T = Nonterminal(t_str)
+    D = Nonterminal(d_str)
+    I = Nonterminal(i_str)
+    def iter_rules():
+        yield Rule(S, [X])  # Start: S -> X
+        yield Rule(X, [X, X])  # Phrase rule: X -> X X
+        # Unary rules for translation/deletion (but not for insertion)
+        yield Rule(X, [T])
+        yield Rule(X, [D])
+        # We can have deletion blocks (but not insertions)
+        yield Rule(D, [D, D])
+        # We constraint insertions to happen in some lexical context (a translation pair)
+        yield Rule(X, [T, I])
+        yield Rule(X, [I, T])
+        for x, ys in lexicon.items():
+            if x == eps_str:  # if the source is empty this is insertion
+                yield Rule(I, [Terminal(x)])  # I -> eps
+            else:  # otherwise this is translation
+                yield Rule(T, [Terminal(x)])  # T - > x
+            if eps_str in ys:  # but it may also be deletion
+                yield Rule(D, [Terminal(x)])  # D -> x
+    return CFG(iter_rules())
+
+
+def make_target_side_finite_itg(source_forest: CFG, lexicon: dict,
+        s_str='S', x_str='X', t_str='T', d_str='D', i_str='I', eps_str='-EPS-') -> CFG:
+    """
+    Constructs the target side of an ITG from a source forest and a dictionary.
+    This function is to be used with ITGs whose source side were built by make_source_side_finite_itg
+     where insertions are bounded.
+
+    """
+    S = Nonterminal(s_str)
+    X = Nonterminal(x_str)
+    T = Nonterminal(t_str)
+    D = Nonterminal(d_str)
+    I = Nonterminal(i_str)
+    def iter_rules():
+        for lhs, rules in source_forest.items():
+            for r in rules:
+                if r.arity == 1:  # unary rules
+                    if r.rhs[0].is_terminal():  # terminal rules
+                        x_str = r.rhs[0].root().obj()  # this is the underlying string of a Terminal
+                        targets = lexicon.get(x_str, set())
+                        if not targets:
+                            pass  # TODO: do something with unknown words?
+                        else:
+                            if r.lhs.root() == D:  # D rules
+                                if eps_str in targets:
+                                    yield Rule(r.lhs, [r.rhs[0].translate(eps_str)])  # translation
+                            else:  # deal with non D rules
+                                for y_str in targets:
+                                    if y_str == eps_str:
+                                        continue
+                                    yield Rule(r.lhs, [r.rhs[0].translate(y_str)])  # translation
+                    else:
+                        yield r  # nonterminal rules
+                elif r.arity == 2:
+                    yield r  # monotone
+                    if r.rhs[0].root() == r.rhs[1].root() and r.rhs[0].root() in [I, D]:  # no point in flipping
+                        continue
+                    if r.rhs[0] != r.rhs[1]:  # avoiding some spurious derivations by blocking invertion of identical spans
+                        yield Rule(r.lhs, [r.rhs[1], r.rhs[0]])  # inverted
+                else:
+                    raise ValueError('ITG rules are unary or binary, got %r' % r)
+    return CFG(iter_rules())

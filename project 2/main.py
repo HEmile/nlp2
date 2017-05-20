@@ -14,14 +14,13 @@ PARTITION = 4
 DATA_SET_INDEX = 0 #Divide dataset in 9 partitions
 
 
-def main(parse=False, featurise=True):
+def main(parse=True, featurise=True):
     chinese, english = read_data('data/training.zh-en')
     skip_dict = skip_bigrams(chinese)
     mn, mx = DATA_SET_INDEX * (len(chinese) // PARTITION), (DATA_SET_INDEX + 1) * (len(chinese) // PARTITION)
     chinese, english = chinese[mn: mx], english[mn: mx]
-    lexicon, weights = read_lexicon_ibm('lexicon')
-    src_cfg = make_source_side_itg(lexicon)
-    limitfsa = InsertionConstraint(LIMIT_TRANS_LENGTH)
+    lexicon, weights, ch_vocab, en_vocab = read_lexicon_ibm('lexicon')
+    src_cfg = make_source_side_finite_itg(lexicon)
 
     w = defaultdict(lambda: 1) #Initialize the weight dictionary with 1s
     delta = 0.001
@@ -38,8 +37,20 @@ def main(parse=False, featurise=True):
         index = mn + i
         chi_src = chinese[i]
         en_src = english[i]
-        if len(chi_src.split()) > 10 or len(en_src.split()) > 10:
+        chi_spl = chi_src.split()
+        en_spl = en_src.split()
+
+        if len(chi_spl) > 15 or len(en_spl) > 15:
             continue
+
+        def map_unk(splt, vocab):
+            for i in range(len(splt)):
+                if splt[i] not in vocab:
+                    splt[i] = '-UNK-'
+            return ' '.join(splt)
+        chi_src = map_unk(chi_spl, ch_vocab)
+        en_src = map_unk(en_spl, en_vocab)
+
         src_fsa = make_fsa(chi_src)
         tgt_fsa = make_fsa(en_src)
 
@@ -47,32 +58,30 @@ def main(parse=False, featurise=True):
 
         if parse:
             forest = earley(src_cfg, src_fsa, start_symbol=Nonterminal('S'), sprime_symbol=Nonterminal("D(x)"))
-            _dix = earley(forest, limitfsa, start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('Di(x)'), eps_symbol=None)
-            # print(dx)
 
-            dix = make_target_side_itg(_dix, lexicon)
+            dx = make_target_side_finite_itg(forest, lexicon)
 
-            dxy = earley(dix, tgt_fsa, start_symbol=Nonterminal("Di(x)"), sprime_symbol=Nonterminal('D(x, y)'))
+            dxy = earley(dx, tgt_fsa, start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('D(x, y)'))
 
-            if len(dxy) == 0 or len(dix) == 0:
+            if len(dxy) == 0:
                 continue
 
             with open(path, 'wb') as f:
-                pickle.dump((dix, dxy), f)
+                pickle.dump((dx, dxy), f)
         else:
             if os.path.exists(path):
                 with open(path, 'rb') as f:
-                    dix, dxy = pickle.load(f)
+                    dx, dxy = pickle.load(f)
             else:
                 continue
 
         print(index)
         print(chi_src)
         print(en_src)
-        dw = gradient(dix, dxy, src_fsa, w, weights, skip_dict, index, featurise)
-        if dw:
-            for k, dwk in dw.items():
-                w[k] += delta * dwk
+        # dw = gradient(dx, dxy, src_fsa, w, weights, skip_dict, index, featurise)
+        # if dw:
+        #     for k, dwk in dw.items():
+        #         w[k] += delta * dwk
 
 
 if __name__ == '__main__':
