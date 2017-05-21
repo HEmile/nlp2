@@ -50,7 +50,7 @@ def get_target_word(symbol: Symbol):
 
 
 def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispans=False, eps=Terminal('-EPS-'),
-                    sparse_del=False, sparse_ins=False, sparse_trans=False) -> dict:
+                    sparse_del=False, sparse_ins=False, sparse_trans=False, skip_grams=False) -> dict:
     """
     Featurises an edge given
         * rule and spans
@@ -67,18 +67,12 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
         if use_bispans:
             (l_sym, ls1, ls2), (lt1, lt2) = get_bispans(edge.rhs[0])  # left of RHS
             (r_sym, rs1, rs2), (rt1, rt2) = get_bispans(edge.rhs[1])  # right of RHS
-
-            #May not use T anymore, see notebook
-            fmap['type:span_source_lhs'] += (ls2-ls1)
-            fmap['type:span_source_rhs'] += (rs2-rs1)
-            #fmap['type:span_target_lhs'] += (lt2-lt1)
-            #fmap['type:span_target_rhs'] += (rt2-rt1)
         else:
             l_sym, ls1, ls2 = get_spans(edge.rhs[0])  # left of RHS
             r_sym, rs1, rs2 = get_spans(edge.rhs[1])  # right of RHS
 
-            fmap['type:span_lhs'] += (ls2-ls1)
-            fmap['type:span_rhs'] += (rs2-rs1)
+        fmap['type:span_source_lhs'] += (ls2-ls1)
+        fmap['type:span_source_rhs'] += (rs2-rs1)
         # TODO: double check these, assign features, add some more
         if ls1 == ls2:  # deletion of source left child
             fmap['type:del_lhs'] += 1.0
@@ -136,11 +130,12 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
                     # sparse version                    
                     if sparse_trans:
                         fmap['trans:%s/%s' % (src_word, tgt_word)] += 1.0
-                            
-                    #skip bigrams:
-                    for key in skip_dict.keys():
-                        if src_word in key:
-                            fmap['skip:%s' % src_word] += skip_dict[key]
+
+                    if skip_grams:
+                        #skip bigrams:
+                        for key in skip_dict.keys():
+                            if src_word in key:
+                                fmap['skip:%s' % src_word] += skip_dict[key]
         else:  # S -> X
             fmap['top'] += 1.0
     return fmap
@@ -221,10 +216,10 @@ def inside_value(cfg: CFG, fweight):
         if not v.is_terminal():
             rules = cfg.get(v)
             if not rules:
-                Iplus[v] = -sys.maxsize
-                Imax[v] = -sys.maxsize
+                Iplus[v] = 0
+                Imax[v] = 0
             else:
-                s = 0
+                s = -sys.maxsize
                 mx = -sys.maxsize
                 for rule in rules:
                     prod = fweight(rule)  # fweight(rule)
@@ -234,7 +229,7 @@ def inside_value(cfg: CFG, fweight):
                     mx = max(prod, mx)
                 Iplus[v] = s
                 Imax[v] = mx
-    return Iplus, Imax
+    return Iplus, Imax, Iplus[std[-1]]
 
 
 def outside_value(cfg: CFG, I: dict, fweight):
@@ -256,7 +251,7 @@ def outside_value(cfg: CFG, I: dict, fweight):
 
 def expected_features(forest: CFG, edge_features: dict, wmap: dict) -> dict:
     weight_f = get_weight_f(edge_features, wmap)
-    Iplus, Imax = inside_value(forest, weight_f)
+    Iplus, Imax, tot = inside_value(forest, weight_f)
     outside = outside_value(forest, Iplus, weight_f)
     expf = defaultdict(float)
     for rule in forest:
@@ -265,7 +260,7 @@ def expected_features(forest: CFG, edge_features: dict, wmap: dict) -> dict:
             k += Iplus[v]
         for f, v in edge_features[rule].items():
             expf[f] += k * v
-    return expf, Imax
+    return expf, Imax, tot
 
 
 def viterbi(Imax, dxn, weight):
@@ -297,9 +292,8 @@ def viterbi(Imax, dxn, weight):
     return language_of_cfg(cfg, u)
 
 
-def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, skip_dict, index, get_features=True) -> dict:
-    #print('weight ins:opening', weight['ins:opening'])
-    print('weight type:insertion', weight['type:insertion'])
+def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, skip_dict, index, get_features=False) -> dict:
+    # print('weight type:insertion', weight['type:insertion'])
     if get_features:
         fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict, sparse_ins=False)
         fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_ins=False, use_bispans=True)
@@ -308,25 +302,20 @@ def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, 
     else:
         with open('features/' + str(index) + '.pkl', 'rb') as f:
             fmapxn, fmapxy = pickle.load(f)
+    expfxn, Imax, totxn = expected_features(dxn, fmapxn, weight)
 
-    expfxn, Imax = expected_features(dxn, fmapxn, weight)
-    print(viterbi(Imax, dxn, weight))
+    # print(viterbi(Imax, dxn, weight))
 
-    if len(dxy) == 0:
-        print('Skipping ungenerated y')
-        return
-    expfxy, _ = expected_features(dxy, fmapxy, weight)
+    expfxy, _, totxy = expected_features(dxy, fmapxy, weight)
 
-    #print('ins:opening', expfxn['ins:opening'], expfxy['ins:opening'])
-    print('type:insertion', expfxn['type:insertion'], expfxy['type:insertion'])
+    # print('type:insertion', expfxn['type:insertion'], expfxy['type:insertion'])
 
     gradient = defaultdict(float)
     features = set(expfxn.keys())
     features.union(expfxy.keys())
     
     for f in features:
-        gradient[f] = expfxy[f] - expfxn[f] # - lambda/math.pow(sigma, 2) #L2-regulariser
-    #print('gradient ins:opening', gradient['ins:opening'])
-    print('gradient type:insertion', gradient['type:insertion'])
+        gradient[f] = expfxy[f] - expfxn[f]
+    # print('gradient type:insertion', gradient['type:insertion'])
 
-    return gradient
+    return gradient, totxy - totxn

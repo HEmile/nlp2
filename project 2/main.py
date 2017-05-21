@@ -9,7 +9,7 @@ import os
 
 LIMIT_TRANS_LENGTH = 3
 
-PARTITION = 6
+PARTITION = 2
 
 DATA_SET_INDEX = 4 #Divide dataset in 9 partitions
 
@@ -23,8 +23,8 @@ def main(parse=False, featurise=True):
     chinese, english = chinese[mn: mx], english[mn: mx]
     lexicon, weights, ch_vocab, en_vocab, null_alligned = read_lexicon_ibm('lexicon')
 
-    w = defaultdict(lambda: 0.01) #Initialize the weight dictionary with 1s
-    delta = 0.000001
+    w = defaultdict(lambda: 0.0000001) #Initialize the weight dictionary with 1s
+    delta = 0.000000001
 
     if not os.path.exists('parses'):
         os.makedirs('parses')
@@ -33,7 +33,8 @@ def main(parse=False, featurise=True):
         os.makedirs('features')
 
     print('Parsing sentences', mn, 'to', mx)
-     
+    likelihood = []
+    count = 0
     for i in range(len(chinese)):
         index = mn + i
         chi_src = chinese[i]
@@ -82,13 +83,16 @@ def main(parse=False, featurise=True):
             else:
                 continue
 
-        print(index)
-        print(chi_src)
-        print(en_src)
-        dw = gradient(dx, dxy, src_fsa, w, weights, skip_dict, index, featurise)
+        count += 1
+        dw, likel = gradient(dx, dxy, src_fsa, w, weights, skip_dict, index, featurise)
+        likelihood.append(likel)
         if dw:
             for k, dwk in dw.items():
                 w[k] += delta * dwk
+        if count % 50 == 0:
+            print(index)
+            print(sum(likelihood) / count)
+            likelihood = []
 
 
 if __name__ == '__main__':
