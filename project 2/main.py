@@ -45,9 +45,6 @@ def main(parse=False, featurise=True):
         if len(chi_spl) > SENTENCE_LENGTH or len(en_spl) > SENTENCE_LENGTH:
             continue
 
-        src_fsa = make_fsa(chi_src)
-        tgt_fsa = make_fsa(en_src)
-
         path = "parses/" + str(index) + '.pkl'
 
         if parse:
@@ -62,6 +59,9 @@ def main(parse=False, featurise=True):
             lexicon['-EPS-'] = set(null_alligned)
             for c in chi_spl:  # Belangrijk voor report: Deze toevoegen zorgt ervoor dat heel veel parset
                 lexicon['-EPS-'] = lexicon['-EPS-'].union([lexicon[c][0]])
+
+            src_fsa = make_fsa(chi_src)
+            tgt_fsa = make_fsa(en_src)
 
             src_cfg = make_source_side_finite_itg(lexicon)
 
