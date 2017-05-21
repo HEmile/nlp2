@@ -9,9 +9,9 @@ import os
 
 LIMIT_TRANS_LENGTH = 3
 
-PARTITION = 2
+PARTITION = 1
 
-DATA_SET_INDEX = 4 #Divide dataset in 9 partitions
+DATA_SET_INDEX = 0 #Divide dataset in 9 partitions
 
 SENTENCE_LENGTH = 10
 
@@ -23,7 +23,8 @@ def main(parse=False, featurise=True):
     chinese, english = chinese[mn: mx], english[mn: mx]
     lexicon, weights, ch_vocab, en_vocab, null_alligned = read_lexicon_ibm('lexicon')
 
-    w = defaultdict(lambda: 0.0000001) #Initialize the weight dictionary with 1s
+    with open('w.pkl', 'rb') as f:
+        w = defaultdict(lambda: 0.00001, pickle.load(f))
     delta = 0.000000001
 
     if not os.path.exists('parses'):
@@ -47,21 +48,22 @@ def main(parse=False, featurise=True):
 
         path = "parses/" + str(index) + '.pkl'
 
+        def map_unk(splt, vocab):
+            for i in range(len(splt)):
+                if splt[i] not in vocab:
+                    splt[i] = '-UNK-'
+            return ' '.join(splt)
+        chi_src = map_unk(chi_spl, ch_vocab)
+        en_src = map_unk(en_spl, en_vocab)
+
+        src_fsa = make_fsa(chi_src)
+        tgt_fsa = make_fsa(en_src)
+
         if parse:
-            def map_unk(splt, vocab):
-                for i in range(len(splt)):
-                    if splt[i] not in vocab:
-                        splt[i] = '-UNK-'
-                return ' '.join(splt)
-            chi_src = map_unk(chi_spl, ch_vocab)
-            en_src = map_unk(en_spl, en_vocab)
 
             lexicon['-EPS-'] = set(null_alligned)
             for c in chi_spl:  # Belangrijk voor report: Deze toevoegen zorgt ervoor dat heel veel parset
                 lexicon['-EPS-'] = lexicon['-EPS-'].union([lexicon[c][0]])
-
-            src_fsa = make_fsa(chi_src)
-            tgt_fsa = make_fsa(en_src)
 
             src_cfg = make_source_side_finite_itg(lexicon)
 
@@ -93,6 +95,9 @@ def main(parse=False, featurise=True):
             print(index)
             print(sum(likelihood) / count)
             likelihood = []
+            count = 0
+    with open('w.pkl', 'wb') as f:
+        pickle.dump(dict(w), f)
 
 
 if __name__ == '__main__':
