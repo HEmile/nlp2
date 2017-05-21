@@ -91,7 +91,8 @@ def make_target_side_itg(source_forest: CFG, lexicon: dict) -> CFG:
                         targets = lexicon.get(x_str, set())
                         # yield Rule(r.lhs, [r.rhs[0].translate('-EPS-')])
                         if not targets:
-                            yield Rule(r.lhs, [r.rhs[0].translate('-UNK-')])
+                            pass
+                            #yield Rule(r.lhs, [r.rhs[0].translate('-UNK-')])
                         else:
                             for y_str in targets:
                                 yield Rule(r.lhs, [r.rhs[0].translate(y_str)])  # translation

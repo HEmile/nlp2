@@ -11,20 +11,20 @@ LIMIT_TRANS_LENGTH = 3
 
 PARTITION = 6
 
-DATA_SET_INDEX = 5 #Divide dataset in 9 partitions
+DATA_SET_INDEX = 4 #Divide dataset in 9 partitions
 
 SENTENCE_LENGTH = 10
 
 
-def main(parse=True, featurise=True):
+def main(parse=False, featurise=True):
     chinese, english = read_data('data/training.zh-en')
     skip_dict = skip_bigrams(chinese)
     mn, mx = DATA_SET_INDEX * (len(chinese) // PARTITION), (DATA_SET_INDEX + 1) * (len(chinese) // PARTITION)
     chinese, english = chinese[mn: mx], english[mn: mx]
     lexicon, weights, ch_vocab, en_vocab, null_alligned = read_lexicon_ibm('lexicon')
 
-    w = defaultdict(lambda: 0.0001) #Initialize the weight dictionary with 1s
-    delta = 0.00001
+    w = defaultdict(lambda: 0.01) #Initialize the weight dictionary with 1s
+    delta = 0.000001
 
     if not os.path.exists('parses'):
         os.makedirs('parses')
@@ -85,10 +85,10 @@ def main(parse=True, featurise=True):
         print(index)
         print(chi_src)
         print(en_src)
-        # dw = gradient(dx, dxy, src_fsa, w, weights, skip_dict, index, featurise)
-        # if dw:
-        #     for k, dwk in dw.items():
-        #         w[k] += delta * dwk
+        dw = gradient(dx, dxy, src_fsa, w, weights, skip_dict, index, featurise)
+        if dw:
+            for k, dwk in dw.items():
+                w[k] += delta * dwk
 
 
 if __name__ == '__main__':

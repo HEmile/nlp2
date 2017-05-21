@@ -16,8 +16,8 @@ def get_terminal_string(symbol: Symbol):
 def get_spans(symbol: Span):
     if not isinstance(symbol, Span):
         raise ValueError('I need a span, got %s of type %s' % (symbol, type(symbol)))
-    _, start2, end2 = symbol.obj()  # this unwraps the target or length annotation
-    return start2, end2
+    sym, start2, end2 = symbol.obj()  # this unwraps the target or length annotation
+    return sym, start2, end2
 
 def get_bispans(symbol: Span):
     """
@@ -32,8 +32,8 @@ def get_bispans(symbol: Span):
     if not isinstance(symbol, Span):
         raise ValueError('I need a span, got %s of type %s' % (symbol, type(symbol)))
     s, start2, end2 = symbol.obj()  # this unwraps the target or length annotation
-    _, start1, end1 = s.obj()  # this unwraps the source annotation
-    return (start1, end1), (start2, end2)
+    sym, start1, end1 = s.obj()  # this unwraps the source annotation
+    return (sym, start1, end1), (start2, end2)
 
 def get_source_word(fsa: FSA, origin: int, destination: int) -> str:
     """Returns the python string representing a source word from origin to destination (assuming there's a single one)"""
@@ -65,8 +65,8 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
         fmap['type:binary'] += 1.0
         # here we could have sparse features of the source string as a function of spans being concatenated
         if use_bispans:
-            (ls1, ls2), (lt1, lt2) = get_bispans(edge.rhs[0])  # left of RHS
-            (rs1, rs2), (rt1, rt2) = get_bispans(edge.rhs[1])  # right of RHS
+            (l_sym, ls1, ls2), (lt1, lt2) = get_bispans(edge.rhs[0])  # left of RHS
+            (r_sym, rs1, rs2), (rt1, rt2) = get_bispans(edge.rhs[1])  # right of RHS
 
             #May not use T anymore, see notebook
             fmap['type:span_source_lhs'] += (ls2-ls1)
@@ -74,8 +74,8 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
             #fmap['type:span_target_lhs'] += (lt2-lt1)
             #fmap['type:span_target_rhs'] += (rt2-rt1)
         else:
-            ls1, ls2 = get_spans(edge.rhs[0])  # left of RHS
-            rs1, rs2 = get_spans(edge.rhs[1])  # right of RHS
+            l_sym, ls1, ls2 = get_spans(edge.rhs[0])  # left of RHS
+            r_sym, rs1, rs2 = get_spans(edge.rhs[1])  # right of RHS
 
             fmap['type:span_lhs'] += (ls2-ls1)
             fmap['type:span_rhs'] += (rs2-rs1)
@@ -88,15 +88,18 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
             fmap['type:mon'] += 1.0
         if ls1 == rs2:  # inverted
             fmap['type:inv'] += 1.0
+                    
+        if l_sym == Nonterminal('I') or r_sym == Nonterminal('I'):
+            fmap['type:insertion'] += 1.0
     else:  # unary
         symbol = edge.rhs[0]
         if symbol.is_terminal():  # terminal rule
             fmap['type:terminal'] += 1.0
             # we could have IBM1 log probs for the translation pair or ins/del
             if use_bispans:
-                (s1, s2), (t1, t2) = get_bispans(symbol)
+                (sym, s1, s2), (t1, t2) = get_bispans(symbol)
             else:
-                s1, s2 = get_spans(symbol)
+                sym, s1, s2 = get_spans(symbol)
             if symbol.root() == eps:  # symbol.root() gives us a Terminal free of annotation
                 src_word = get_source_word(src_fsa, s1, s2)
                 fmap['type:deletion'] += 1.0
@@ -112,6 +115,7 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
                 tgt_word = get_target_word(symbol)
                 if s1 == s2:  # has not consumed any source word, must be an eps rule
                     fmap['type:insertion'] += 1.0
+                    
                     # dense version
                     # TODO: use IBM1 prob
                     if (eps, tgt_word) in weights_ibm.keys():
@@ -258,7 +262,7 @@ def expected_features(forest: CFG, edge_features: dict, wmap: dict) -> dict:
     for rule in forest:
         k = outside[rule.lhs]
         for v in rule.rhs:
-            k += np.log(Iplus[v])
+            k += Iplus[v]
         for f, v in edge_features[rule].items():
             expf[f] += k * v
     return expf, Imax
@@ -293,7 +297,7 @@ def viterbi(Imax, dxn, weight):
     return language_of_cfg(cfg, u)
 
 
-def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, skip_dict, index, get_features=False) -> dict:
+def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, skip_dict, index, get_features=True) -> dict:
     #print('weight ins:opening', weight['ins:opening'])
     print('weight type:insertion', weight['type:insertion'])
     if get_features:
