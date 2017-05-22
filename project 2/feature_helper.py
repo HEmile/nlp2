@@ -73,18 +73,23 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
 
         fmap['type:span_source_lhs'] += (ls2-ls1)
         fmap['type:span_source_rhs'] += (rs2-rs1)
-        # TODO: double check these, assign features, add some more
-        if ls1 == ls2:  # deletion of source left child
-            fmap['type:del_lhs'] += 1.0
-        if rs1 == rs2:  # deletion of source right child
-            fmap['type:del_rhs'] += 1.0
-        if ls2 == rs1:  # monotone
-            fmap['type:mon'] += 1.0
-        if ls1 == rs2:  # inverted
-            fmap['type:inv'] += 1.0
+
+        #if ls1 == ls2:  # deletion of source left child
+        #    fmap['type:del_lhs'] += 1.0
+        #if rs1 == rs2:  # deletion of source right child
+        #    fmap['type:del_rhs'] += 1.0
+        #if ls2 == rs1:  # monotone
+        #    fmap['type:mon'] += 1.0
+        #if ls1 == rs2:  # inverted
+        #    fmap['type:inv'] += 1.0
                     
         if l_sym == Nonterminal('I') or r_sym == Nonterminal('I'):
             fmap['type:insertion'] += 1.0
+        if l_sym == Nonterminal('T') or r_sym == Nonterminal('T'):
+            fmap['type:translation'] += 1.0
+        if l_sym == Nonterminal('D') or r_sym == Nonterminal('D'):
+            fmap['type:deletion'] += 1.0
+        
     else:  # unary
         symbol = edge.rhs[0]
         if symbol.is_terminal():  # terminal rule
