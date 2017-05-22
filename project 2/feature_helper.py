@@ -85,10 +85,13 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
                     
         if l_sym == Nonterminal('I') or r_sym == Nonterminal('I'):
             fmap['type:insertion'] += 1.0
+            fmap['type:target_length'] += 1.0
         if l_sym == Nonterminal('T') or r_sym == Nonterminal('T'):
             fmap['type:translation'] += 1.0
+            fmap['type:target_length'] += 1.0                
         if l_sym == Nonterminal('D') or r_sym == Nonterminal('D'):
             fmap['type:deletion'] += 1.0
+                
         
     else:  # unary
         symbol = edge.rhs[0]
