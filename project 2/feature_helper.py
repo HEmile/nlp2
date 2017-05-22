@@ -138,9 +138,7 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
 
                     if skip_grams:
                         #skip bigrams:
-                        for key in skip_dict.keys():
-                            if src_word in key:
-                                fmap['skip:%s' % src_word] += skip_dict[key]
+                        fmap['skip:%s' % src_word] += skip_dict[src_word]
         else:  # S -> X
             fmap['top'] += 1.0
     return fmap
@@ -151,7 +149,9 @@ def skip_bigrams(chinese) -> dict:
     for sen in chinese:
         skips = list(skipgrams(sen.split(),2, 1))
         for skip in skips:
-            skip_dict[skip] += 1
+            (skip1, skip2) = skip
+            skip_dict[skip1] += 1
+            skip_dict[skip2] += 1
     return skip_dict
 
 def featurize_edges(forest, src_fsa, weights_ibm, skip_dict, use_bispans=False,
