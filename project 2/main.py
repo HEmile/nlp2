@@ -17,9 +17,13 @@ DATA_SET_INDEX = 0 #Divide dataset in 9 partitions
 
 SENTENCE_LENGTH = 10
 
-BATCH_SIZE = 30
+BATCH_SIZE = 1
 
 SGD_ITERATIONS = 10
+
+LAMBDA = 1
+
+GAMMA0 = 0.0001
 
 def main(parse=False, featurise=True):
     chinese, english = read_data('data/training.zh-en')
@@ -28,8 +32,10 @@ def main(parse=False, featurise=True):
     chinese, english = chinese[mn: mx], english[mn: mx]
     lexicon, weights, ch_vocab, en_vocab, null_alligned = read_lexicon_ibm('lexicon')
 
-    w = defaultdict(lambda: (random.random() - 0.5) / 100)
-    delta = 0.000000001
+    # with open('w0.pkl', 'rb') as f:
+    #     w = pickle.load(f)
+    w = defaultdict(lambda: (random.random() - 0.5) / 2)
+    delta = 0.0000001
 
     if not os.path.exists('parses'):
         os.makedirs('parses')
@@ -43,6 +49,7 @@ def main(parse=False, featurise=True):
     g_batch = defaultdict(float)
     count_batch = 0
     best_likelihood = -sys.maxsize
+    t = 0
     for iter in range(SGD_ITERATIONS):
         print('STARTING SGD ITERATION', iter + 1)
         for i in range(len(chinese)):
@@ -96,22 +103,30 @@ def main(parse=False, featurise=True):
 
             count += 1
             count_batch += 1
-            dw, likel = gradient(dx, dxy, src_fsa, w, weights, skip_dict, index, featurise)
+
+            # print(en_src)
+
+            dw, likel = gradient(dx, dxy, src_fsa, w, weights, skip_dict, index, featurise, LAMBDA)
             likelihood.append(likel)
             if dw:
                 for k, dwk in dw.items():
                     g_batch[k] += dwk
             if count_batch % BATCH_SIZE == 0:
+                gammat = GAMMA0 * (1 / (1 + GAMMA0 * LAMBDA * t))
+                t += 1
                 for k, dwk in g_batch.items():
-                    w[k] -= delta * dwk
+                    w[k] += gammat * dwk
             if count % 50 == 0:
                 print(index)
+                print(gammat)
                 l = sum(likelihood) / count
                 print(l)
                 if l > best_likelihood:
                     with open('w'+str(iter)+'.pkl', 'wb') as f:
                         pickle.dump(dict(w), f)
                         best_likelihood = l
+                else:
+                    print(w)
                 likelihood = []
                 count = 0
 

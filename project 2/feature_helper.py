@@ -5,6 +5,7 @@ import numpy as np
 import sys
 from alg import *
 import pickle
+import random
 
 
 def get_terminal_string(symbol: Symbol):
@@ -62,7 +63,7 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
     """
     fmap = defaultdict(float)
     if len(edge.rhs) == 2:  # binary rule
-        fmap['type:binary'] += 1.0
+        # fmap['type:binary'] += 1.0
         # here we could have sparse features of the source string as a function of spans being concatenated
         if use_bispans:
             (l_sym, ls1, ls2), (lt1, lt2) = get_bispans(edge.rhs[0])  # left of RHS
@@ -71,8 +72,8 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
             l_sym, ls1, ls2 = get_spans(edge.rhs[0])  # left of RHS
             r_sym, rs1, rs2 = get_spans(edge.rhs[1])  # right of RHS
 
-        fmap['type:span_source_lhs'] += (ls2-ls1)
-        fmap['type:span_source_rhs'] += (rs2-rs1)
+        # fmap['type:span_source_lhs'] += (ls2-ls1)
+        # fmap['type:span_source_rhs'] += (rs2-rs1)
 
         #if ls1 == ls2:  # deletion of source left child
         #    fmap['type:del_lhs'] += 1.0
@@ -159,10 +160,10 @@ def skip_bigrams(chinese) -> dict:
 
 def featurize_edges(forest, src_fsa, weights_ibm, skip_dict, use_bispans=False,
                     sparse_del=False, sparse_ins=False, sparse_trans=False,
-                    eps=Terminal('-EPS-')) -> dict:
+                    use_skip_dict = False, eps=Terminal('-EPS-')) -> dict:
     edge2fmap = dict()
     for edge in forest:
-        edge2fmap[edge] = simple_features(edge, src_fsa, weights_ibm, skip_dict, use_bispans, eps, sparse_del, sparse_ins, sparse_trans)
+        edge2fmap[edge] = simple_features(edge, src_fsa, weights_ibm, skip_dict, use_bispans, eps, sparse_del, sparse_ins, sparse_trans, use_skip_dict)
     return edge2fmap
 
 # Returns the dot product of the weights
@@ -221,22 +222,21 @@ def inside_value(cfg: CFG, fweight):
     Iplus = defaultdict(float)
     Imax = {}
     for v in std:
-        if not v.is_terminal():
-            rules = cfg.get(v)
-            if not rules:
-                Iplus[v] = 0
-                Imax[v] = 0
-            else:
-                s = -sys.maxsize
-                mx = -sys.maxsize
-                for rule in rules:
-                    prod = fweight(rule)  # fweight(rule)
-                    for symbol in rule.rhs:
-                        prod += Iplus[symbol]
-                    s = np.logaddexp(s, prod)
-                    mx = max(prod, mx)
-                Iplus[v] = s
-                Imax[v] = mx
+        rules = cfg.get(v)
+        if not rules:
+            Iplus[v] = 0
+            Imax[v] = 0
+        else:
+            s = -sys.maxsize
+            mx = -sys.maxsize
+            for rule in rules:
+                prod = fweight(rule)  # fweight(rule)
+                for symbol in rule.rhs:
+                    prod += Iplus[symbol]
+                s = np.logaddexp(s, prod)
+                mx = max(prod, mx)
+            Iplus[v] = s
+            Imax[v] = mx
     return Iplus, Imax, Iplus[std[-1]]
 
 
@@ -251,7 +251,7 @@ def outside_value(cfg: CFG, I: dict, fweight):
             for u in e.rhs:
                 k = fweight(e) + O[v]
                 for s in e.rhs:
-                    if s is not u:
+                    if s != u:
                         k += I[s]
                 O[u] = np.logaddexp(O[u], k)
     return O
@@ -271,7 +271,8 @@ def expected_features(forest: CFG, edge_features: dict, wmap: dict) -> dict:
     return expf, Imax, tot
 
 
-def viterbi(Imax, dxn, weight):
+def viterbi(Imax, dxn, wmap, edge_features):
+    fweight = get_weight_f(edge_features, wmap)
     std = toposort(dxn)
     u = std[-1]
     def iternew(u):
@@ -281,14 +282,11 @@ def viterbi(Imax, dxn, weight):
             mx1 = -sys.maxsize
             argmax1 = None
             for r in dxn[u]:
-                mx2 = -sys.maxsize
+                mx2 = 0
                 for v in r.rhs:
-                    if v.is_terminal():
-                        if 1 > mx2:
-                            mx2 = 1
-                    elif Imax[v] > mx2:
-                        mx2 = Imax[v]
-                mx2 += weight[r]
+                    if not v.is_terminal():
+                        mx2 += Imax[v]
+                mx2 += fweight(r)
                 if mx2 > mx1:
                     argmax1 = r
                     mx1 = mx2
@@ -299,12 +297,42 @@ def viterbi(Imax, dxn, weight):
     cfg = CFG(iternew(u))
     return language_of_cfg(cfg, u)
 
+def sampling(Iplus, dxn, wmap, edge_features):
+    fweight = get_weight_f(edge_features, wmap)
+    std = toposort(dxn)
+    u = std[-1]
+    def iternew(u):
+        queue = [u]
+        while queue:
+            u = queue.pop()
+            probabilities = []
+            for r in dxn[u]:
+                mx2 = 0
+                for v in r.rhs:
+                    if not v.is_terminal():
+                        mx2 += Iplus[v]
+                mx2 += fweight(r)
+                probabilities.append((mx2/Iplus[u], r))
+            tot = sum([x[0] for x in probabilities])
+            samp = random.random() * tot
+            s = 0
+            for i in range(len(probabilities)):
+                if samp < s + probabilities[i][0]:
+                    argmax = probabilities[i][1]
+                    break
+            yield argmax
+            for v in reversed(argmax.rhs):  # Ensure leftmost derivation
+                if not v.is_terminal():
+                    queue.append(v)
+    cfg = CFG(iternew(u))
+    return language_of_cfg(cfg, u)
 
-def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, skip_dict, index, get_features=False) -> dict:
+
+def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, skip_dict, index, get_features=False, lamb=0.0001) -> dict:
     # print('weight type:insertion', weight['type:insertion'])
     if get_features:
-        fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict, sparse_ins=False)
-        fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_ins=False, use_bispans=True)
+        fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict, sparse_del=False, sparse_trans=False, sparse_ins=False, use_skip_dict=False)
+        fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_del=False, sparse_trans=False, sparse_ins=False, use_skip_dict=False, use_bispans=True)
         with open('features/' + str(index) + '.pkl', 'wb') as f:
             pickle.dump((fmapxn, fmapxy), f)
     else:
@@ -312,7 +340,7 @@ def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, 
             fmapxn, fmapxy = pickle.load(f)
     expfxn, Imax, totxn = expected_features(dxn, fmapxn, weight)
 
-    # print(viterbi(Imax, dxn, weight))
+    # print(viterbi(Imax, dxn, weight, fmapxn))
 
     expfxy, _, totxy = expected_features(dxy, fmapxy, weight)
 
@@ -323,7 +351,7 @@ def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, 
     features.union(expfxy.keys())
     
     for f in features:
-        gradient[f] = expfxy[f] - expfxn[f]
+        gradient[f] = expfxy[f] - expfxn[f] - lamb * weight[f]
     # print('gradient type:insertion', gradient['type:insertion'])
 
     return gradient, totxy - totxn
