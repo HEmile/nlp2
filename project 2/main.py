@@ -23,11 +23,11 @@ BATCH_SIZE = 30
 
 SGD_ITERATIONS = 10
 
-LAMBDA_LR = 4
+LAMBDA_LR = 10
 
 LAMBDA_R = 0.0001
 
-GAMMA0 = 0.0001
+GAMMA0 = 0.001
 
 USE_SPARSE_F = False
 
@@ -60,12 +60,6 @@ def main(parse=False, featurise=True, predict=False):
     g_batch = defaultdict(float)
     count_batch = 0
     best_likelihood = -sys.maxsize
-    ls_gr_x = []
-    ls_gr_y = []
-    ls_gr_ac = []
-    ls_gr_cp = []
-    ls_exp_xy = []
-    ls_exp_x = []
     t = 0
     for iter in range(SGD_ITERATIONS):
         print('STARTING SGD ITERATION', iter + 1)
@@ -98,11 +92,8 @@ def main(parse=False, featurise=True, predict=False):
                     lexicon['-EPS-'] = lexicon['-EPS-'].union([lexicon[c][0]])
 
                 src_cfg = make_source_side_finite_itg(lexicon)
-
                 forest = earley(src_cfg, src_fsa, start_symbol=Nonterminal('S'), sprime_symbol=Nonterminal("D(x)"))
-
                 dx = make_target_side_finite_itg(forest, lexicon)
-
                 dxy = earley(dx, tgt_fsa, start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('D(x, y)'))
 
                 if len(dxy) == 0:
@@ -124,27 +115,6 @@ def main(parse=False, featurise=True, predict=False):
                 print(en_src)
 
             dw, likel = gradient(dx, dxy, src_fsa, w, weights, skip_dict, index, featurise, LAMBDA_R, USE_SPARSE_F, predict)
-
-            # if count % 10 == 0:
-            #     H = 0.0001
-            #     key, value = 'type:target_length', dw['type:target_length']
-            #     wn = dict(w)
-            #     wn[key] += H
-            #     _, likel1, _, _ = gradient(dx, dxy, src_fsa, wn, weights, skip_dict, index, featurise, LAMBDA)
-            #     dwk = (likel1 - likel) / H
-            #
-            #     ls_gr_x.append(w[key])
-            #     ls_gr_y.append(dwk - value)
-            #     ls_gr_ac.append(dwk)
-            #     ls_gr_cp.append(value)
-
-            # if count % 1000 == 0:
-            #     plot.plot(ls_gr_x, ls_gr_ac)
-            #     plot.plot(ls_gr_x, ls_gr_cp)
-            #     plot.plot(ls_gr_x, ls_exp_x)
-            #     plot.plot(ls_gr_x, ls_exp_xy)
-            #     plot.show()
-
             likelihood.append(likel)
             if dw:
                 for k, dwk in dw.items():
@@ -163,12 +133,44 @@ def main(parse=False, featurise=True, predict=False):
                 if l > best_likelihood:
                     modifier = 'sparse' if USE_SPARSE_F else ''
                     modifier += str(BATCH_SIZE) + '-' + str(LAMBDA_LR)
-                    print(modifier)
+                    print('m:', modifier)
                     with open('w'+modifier+str(iter)+'.pkl', 'wb') as f:
                         pickle.dump(dict(w), f)
                         best_likelihood = l
                 likelihood = []
                 count = 0
+
+
+def test_gradient():
+    ls_gr_x = []
+    ls_gr_y = []
+    ls_gr_ac = []
+    ls_gr_cp = []
+    chinese, english = read_data('data/training.zh-en')
+    _, weights, _, _, _ = read_lexicon_ibm('lexicon')
+    for w in np.arange(-2, 2, 0.01):
+        src_fsa = make_fsa(chinese[3])
+        with open('parses/3.pkl', 'rb') as f:
+            dx1, dxy1 = pickle.load(f)
+        H = 0.0001
+        key = 'type:target_length'
+        w1 = defaultdict(float)
+        w1[key] = w
+        w2 = defaultdict(float)
+        w2[key] = w + H
+        dw, likel1 = gradient(dx1, dxy1, src_fsa, w1, weights, None, 3, True, 0)
+        _, likel2 = gradient(dx1, dxy1, src_fsa, w2, weights, None, 3, True, 0)
+        dwk = (likel2 - likel1) / H
+
+        ls_gr_x.append(w)
+        ls_gr_y.append(dwk - dw[key])
+        ls_gr_ac.append(dwk)
+        ls_gr_cp.append(dw[key])
+
+    plot.plot(ls_gr_x, ls_gr_ac)
+    plot.plot(ls_gr_x, ls_gr_cp)
+    plot.show()
+
 
 if __name__ == '__main__':
     main()
