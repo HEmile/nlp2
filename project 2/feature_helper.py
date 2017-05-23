@@ -63,7 +63,7 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
     """
     fmap = defaultdict(float)
     if len(edge.rhs) == 2:  # binary rule
-        # fmap['type:binary'] += 1.0
+        fmap['type:binary'] += 1.0
         # here we could have sparse features of the source string as a function of spans being concatenated
         if use_bispans:
             (l_sym, ls1, ls2), (lt1, lt2) = get_bispans(edge.rhs[0])  # left of RHS
@@ -72,8 +72,8 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
             l_sym, ls1, ls2 = get_spans(edge.rhs[0])  # left of RHS
             r_sym, rs1, rs2 = get_spans(edge.rhs[1])  # right of RHS
 
-        # fmap['type:span_source_lhs'] += (ls2-ls1)
-        # fmap['type:span_source_rhs'] += (rs2-rs1)
+        #fmap['type:span_source_lhs'] += (ls2-ls1)
+        #fmap['type:span_source_rhs'] += (rs2-rs1)
 
         #if ls1 == ls2:  # deletion of source left child
         #    fmap['type:del_lhs'] += 1.0
@@ -89,9 +89,11 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
             fmap['type:target_length'] += 1.0
         if l_sym == Nonterminal('T') or r_sym == Nonterminal('T'):
             fmap['type:translation'] += 1.0
-            fmap['type:target_length'] += 1.0                
+            fmap['type:target_length'] += 1.0
+            fmap['type:source_length'] += 1.0                
         if l_sym == Nonterminal('D') or r_sym == Nonterminal('D'):
             fmap['type:deletion'] += 1.0
+            fmap['type:source_length'] += 1.0
                 
         
     else:  # unary
@@ -160,7 +162,7 @@ def skip_bigrams(chinese) -> dict:
 
 def featurize_edges(forest, src_fsa, weights_ibm, skip_dict, use_bispans=False,
                     sparse_del=False, sparse_ins=False, sparse_trans=False,
-                    use_skip_dict = False, eps=Terminal('-EPS-')) -> dict:
+                    use_skip_dict = True, eps=Terminal('-EPS-')) -> dict:
     edge2fmap = dict()
     for edge in forest:
         edge2fmap[edge] = simple_features(edge, src_fsa, weights_ibm, skip_dict, use_bispans, eps, sparse_del, sparse_ins, sparse_trans, use_skip_dict)
@@ -351,7 +353,7 @@ def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, 
     features.union(expfxy.keys())
     
     for f in features:
-        gradient[f] = expfxy[f] - expfxn[f] - lamb * weight[f]
+        gradient[f] = expfxy[f] - expfxn[f] #- lamb * weight[f]
     # print('gradient type:insertion', gradient['type:insertion'])
 
     return gradient, totxy - totxn
