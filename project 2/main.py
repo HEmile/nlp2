@@ -6,6 +6,8 @@ from collections import defaultdict
 from feature_helper import gradient, skip_bigrams
 import pickle
 import os
+import matplotlib.pyplot as plot
+import numpy as np
 import random
 
 
@@ -13,30 +15,38 @@ LIMIT_TRANS_LENGTH = 3
 
 PARTITION = 1
 
-DATA_SET_INDEX = 0 #Divide dataset in 9 partitions
+DATA_SET_INDEX = 0
 
 SENTENCE_LENGTH = 10
 
-BATCH_SIZE = 1
+BATCH_SIZE = 30
 
 SGD_ITERATIONS = 10
 
-LAMBDA = 0.
+LAMBDA_LR = 4
 
-GAMMA0 = 0.001
+LAMBDA_R = 0.0001
 
-DELTA = 0.00001
+GAMMA0 = 0.0001
 
-def main(parse=False, featurise=True):
+USE_SPARSE_F = False
+
+USE_LOAD_W = False
+
+LOAD_W_PATH = 'wsparse1-50.pkl'
+
+def main(parse=False, featurise=True, predict=False):
     chinese, english = read_data('data/training.zh-en')
     skip_dict = skip_bigrams(chinese)
     mn, mx = DATA_SET_INDEX * (len(chinese) // PARTITION), (DATA_SET_INDEX + 1) * (len(chinese) // PARTITION)
     chinese, english = chinese[mn: mx], english[mn: mx]
     lexicon, weights, ch_vocab, en_vocab, null_alligned = read_lexicon_ibm('lexicon')
 
-    # with open('w0.pkl', 'rb') as f:
-    #     w = pickle.load(f)
-    w = defaultdict(lambda: 0.01)
+    if USE_LOAD_W:
+        with open(LOAD_W_PATH, 'rb') as f:
+            w = pickle.load(f)
+    else:
+        w = defaultdict(float)
 
     if not os.path.exists('parses'):
         os.makedirs('parses')
@@ -47,9 +57,15 @@ def main(parse=False, featurise=True):
     print('Parsing sentences', mn, 'to', mx)
     likelihood = []
     count = 0
-    g_batch = defaultdict(lambda: 0.01)
+    g_batch = defaultdict(float)
     count_batch = 0
     best_likelihood = -sys.maxsize
+    ls_gr_x = []
+    ls_gr_y = []
+    ls_gr_ac = []
+    ls_gr_cp = []
+    ls_exp_xy = []
+    ls_exp_x = []
     t = 0
     for iter in range(SGD_ITERATIONS):
         print('STARTING SGD ITERATION', iter + 1)
@@ -77,7 +93,6 @@ def main(parse=False, featurise=True):
             tgt_fsa = make_fsa(en_src)
 
             if parse:
-
                 lexicon['-EPS-'] = set(null_alligned)
                 for c in chi_spl:  # Belangrijk voor report: Deze toevoegen zorgt ervoor dat heel veel parset
                     lexicon['-EPS-'] = lexicon['-EPS-'].union([lexicon[c][0]])
@@ -105,46 +120,55 @@ def main(parse=False, featurise=True):
             count += 1
             count_batch += 1
 
-            # print(en_src)
+            if predict:
+                print(en_src)
 
-            dw, likel = gradient(dx, dxy, src_fsa, w, weights, skip_dict, index, featurise, LAMBDA)
+            dw, likel = gradient(dx, dxy, src_fsa, w, weights, skip_dict, index, featurise, LAMBDA_R, USE_SPARSE_F, predict)
 
-            # H = 0.0001
-            # for key, value in dw.items():
+            # if count % 10 == 0:
+            #     H = 0.0001
+            #     key, value = 'type:target_length', dw['type:target_length']
             #     wn = dict(w)
             #     wn[key] += H
-            #     _, likel1 = gradient(dx, dxy, src_fsa, wn, weights, skip_dict, index, featurise, LAMBDA)
+            #     _, likel1, _, _ = gradient(dx, dxy, src_fsa, wn, weights, skip_dict, index, featurise, LAMBDA)
             #     dwk = (likel1 - likel) / H
             #
-            #     print(key)
-            #     print('ACTUAL GRADIENT', dwk)
-            #     print('COMPUTED GRADIENT', value)
-            #
-            # print('---------')
+            #     ls_gr_x.append(w[key])
+            #     ls_gr_y.append(dwk - value)
+            #     ls_gr_ac.append(dwk)
+            #     ls_gr_cp.append(value)
+
+            # if count % 1000 == 0:
+            #     plot.plot(ls_gr_x, ls_gr_ac)
+            #     plot.plot(ls_gr_x, ls_gr_cp)
+            #     plot.plot(ls_gr_x, ls_exp_x)
+            #     plot.plot(ls_gr_x, ls_exp_xy)
+            #     plot.show()
 
             likelihood.append(likel)
             if dw:
                 for k, dwk in dw.items():
                     g_batch[k] += dwk
             if count_batch % BATCH_SIZE == 0:
-                gammat = GAMMA0 * (1 / (1 + GAMMA0 * LAMBDA * t))
+                gammat = GAMMA0 * (1 / (1 + GAMMA0 * LAMBDA_LR * t))
                 t += 1
                 for k, dwk in g_batch.items():
-                    w[k] += gammat * dwk
+                    w[k] += gammat * dwk / BATCH_SIZE
+                g_batch = defaultdict(float)
             if count % 50 == 0:
                 print(index)
                 print(gammat)
                 l = sum(likelihood) / count
                 print(l)
                 if l > best_likelihood:
-                    with open('w'+str(iter)+'.pkl', 'wb') as f:
+                    modifier = 'sparse' if USE_SPARSE_F else ''
+                    modifier += str(BATCH_SIZE) + '-' + str(LAMBDA_LR)
+                    print(modifier)
+                    with open('w'+modifier+str(iter)+'.pkl', 'wb') as f:
                         pickle.dump(dict(w), f)
                         best_likelihood = l
-                else:
-                    print(w)
                 likelihood = []
                 count = 0
-
 
 if __name__ == '__main__':
     main()

@@ -95,8 +95,6 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
         if l_sym == Nonterminal('D') or r_sym == Nonterminal('D'):
             fmap['type:deletion'] += 1.0
             fmap['type:source_length'] += 1.0
-                
-        
     else:  # unary
         symbol = edge.rhs[0]
         if symbol.is_terminal():  # terminal rule
@@ -318,8 +316,9 @@ def expected_features_antilog(forest: CFG, edge_features: dict, wmap: dict) -> d
         k = outside[rule.lhs]
         for v in rule.rhs:
             k *= Iplus[v]
+        k = math.exp(math.log(k) - math.log(tot))
         for f, v in edge_features[rule].items():
-            expf[f] += math.log(k) * v
+            expf[f] += k * v
     # for f in expf.keys():
     #     expf[f] = math.log(expf[f])
     return expf, math.log(tot)
@@ -381,34 +380,25 @@ def sampling(Iplus, dxn, wmap, edge_features):
     return language_of_cfg(cfg, u)
 
 
-def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, skip_dict, index, get_features=False, lamb=0.0001) -> dict:
+def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, skip_dict, index,
+             get_features=False, lamb=0.0001, sparse=False, predict=False) -> dict:
     # print('weight type:insertion', weight['type:insertion'])
-    if get_features:
-        fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict, sparse_del=False, sparse_trans=False, sparse_ins=False, use_skip_dict=False)
-        fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_del=False, sparse_trans=False, sparse_ins=False, use_skip_dict=False, use_bispans=True)
-        with open('features/' + str(index) + '.pkl', 'wb') as f:
-            pickle.dump((fmapxn, fmapxy), f)
-    else:
-        with open('features/' + str(index) + '.pkl', 'rb') as f:
-            fmapxn, fmapxy = pickle.load(f)
-    # expfxn,  totxn = expected_features_antilog(dxn, fmapxn, weight)
-    expfxn, _, totxn = expected_features(dxn, fmapxn, weight)
-    # print(expfxn)
-    # print(expfxn2)
+    fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=False)
+    fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=False, use_bispans=True)
+    with open('features/' + str(index) + '.pkl', 'wb') as f:
+        pickle.dump((fmapxn, fmapxy), f)
+    expfxn, Imax, totxn = expected_features(dxn, fmapxn, weight)
 
-    # print(viterbi(Imax, dxn, weight, fmapxn))
+    if predict:
+        print(viterbi(Imax, dxn, weight, fmapxn))
 
     expfxy, _, totxy = expected_features(dxy, fmapxy, weight)
 
-    # print('type:insertion', expfxn['type:insertion'], expfxy['type:insertion'])
-
-    gradient = defaultdict(float)
+    gd = defaultdict(float)
     features = set(expfxn.keys())
     features.union(expfxy.keys())
     
     for f in features:
-        gradient[f] = expfxy[f] - expfxn[f] - lamb * weight[f]
-    # print(gradient)
-    # print('gradient type:insertion', gradient['type:insertion'])
+        gd[f] = expfxy[f] - expfxn[f] - lamb * weight[f]
 
-    return gradient, totxy - totxn
+    return gd, totxy - totxn
