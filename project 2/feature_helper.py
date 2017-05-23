@@ -6,6 +6,7 @@ import sys
 from alg import *
 import pickle
 import random
+import math
 
 
 def get_terminal_string(symbol: Symbol):
@@ -72,8 +73,8 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
             l_sym, ls1, ls2 = get_spans(edge.rhs[0])  # left of RHS
             r_sym, rs1, rs2 = get_spans(edge.rhs[1])  # right of RHS
 
-        #fmap['type:span_source_lhs'] += (ls2-ls1)
-        #fmap['type:span_source_rhs'] += (rs2-rs1)
+        fmap['type:span_source_lhs'] += (ls2-ls1)
+        fmap['type:span_source_rhs'] += (rs2-rs1)
 
         #if ls1 == ls2:  # deletion of source left child
         #    fmap['type:del_lhs'] += 1.0
@@ -241,6 +242,23 @@ def inside_value(cfg: CFG, fweight):
             Imax[v] = mx
     return Iplus, Imax, Iplus[std[-1]]
 
+def inside_value_antilog(cfg: CFG, fweight):
+    std = toposort(cfg)
+    Iplus = defaultdict(float)
+    for v in std:
+        rules = cfg.get(v)
+        if not rules:
+            Iplus[v] = 1
+        else:
+            s = 0
+            for rule in rules:
+                prod = math.exp(fweight(rule))  # fweight(rule)
+                for symbol in rule.rhs:
+                    prod *= Iplus[symbol]
+                s += prod
+            Iplus[v] = s
+    return Iplus, Iplus[std[-1]]
+
 
 def outside_value(cfg: CFG, I: dict, fweight):
     std = toposort(cfg)
@@ -259,6 +277,23 @@ def outside_value(cfg: CFG, I: dict, fweight):
     return O
 
 
+def outside_value_antilog(cfg: CFG, I: dict, fweight):
+    std = toposort(cfg)
+    O = {}
+    for v in std:
+        O[v] = 0
+    O[std[-1]] = 1  # Root node
+    for v in reversed(std):
+        for e in cfg.get(v):
+            for u in e.rhs:
+                k = math.exp(fweight(e)) * O[v]
+                for s in e.rhs:
+                    if s != u:
+                        k *= I[s]
+                O[u] += k
+    return O
+
+
 def expected_features(forest: CFG, edge_features: dict, wmap: dict) -> dict:
     weight_f = get_weight_f(edge_features, wmap)
     Iplus, Imax, tot = inside_value(forest, weight_f)
@@ -268,10 +303,26 @@ def expected_features(forest: CFG, edge_features: dict, wmap: dict) -> dict:
         k = outside[rule.lhs]
         for v in rule.rhs:
             k += Iplus[v]
+        k = math.exp(k - tot)
         for f, v in edge_features[rule].items():
             expf[f] += k * v
     return expf, Imax, tot
 
+
+def expected_features_antilog(forest: CFG, edge_features: dict, wmap: dict) -> dict:
+    weight_f = get_weight_f(edge_features, wmap)
+    Iplus, tot = inside_value_antilog(forest, weight_f)
+    outside = outside_value_antilog(forest, Iplus, weight_f)
+    expf = defaultdict(float)
+    for rule in forest:
+        k = outside[rule.lhs]
+        for v in rule.rhs:
+            k *= Iplus[v]
+        for f, v in edge_features[rule].items():
+            expf[f] += math.log(k) * v
+    # for f in expf.keys():
+    #     expf[f] = math.log(expf[f])
+    return expf, math.log(tot)
 
 def viterbi(Imax, dxn, wmap, edge_features):
     fweight = get_weight_f(edge_features, wmap)
@@ -340,7 +391,10 @@ def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, 
     else:
         with open('features/' + str(index) + '.pkl', 'rb') as f:
             fmapxn, fmapxy = pickle.load(f)
-    expfxn, Imax, totxn = expected_features(dxn, fmapxn, weight)
+    # expfxn,  totxn = expected_features_antilog(dxn, fmapxn, weight)
+    expfxn, _, totxn = expected_features(dxn, fmapxn, weight)
+    # print(expfxn)
+    # print(expfxn2)
 
     # print(viterbi(Imax, dxn, weight, fmapxn))
 
@@ -353,7 +407,8 @@ def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, 
     features.union(expfxy.keys())
     
     for f in features:
-        gradient[f] = expfxy[f] - expfxn[f] #- lamb * weight[f]
+        gradient[f] = expfxy[f] - expfxn[f] - lamb * weight[f]
+    # print(gradient)
     # print('gradient type:insertion', gradient['type:insertion'])
 
     return gradient, totxy - totxn

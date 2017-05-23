@@ -21,9 +21,11 @@ BATCH_SIZE = 1
 
 SGD_ITERATIONS = 10
 
-LAMBDA = 1
+LAMBDA = 0.
 
-GAMMA0 = 0.0001
+GAMMA0 = 0.001
+
+DELTA = 0.00001
 
 def main(parse=False, featurise=True):
     chinese, english = read_data('data/training.zh-en')
@@ -34,8 +36,7 @@ def main(parse=False, featurise=True):
 
     # with open('w0.pkl', 'rb') as f:
     #     w = pickle.load(f)
-    w = defaultdict(lambda: (random.random() - 0.5) / 2)
-    delta = 0.0000001
+    w = defaultdict(lambda: 0.01)
 
     if not os.path.exists('parses'):
         os.makedirs('parses')
@@ -46,7 +47,7 @@ def main(parse=False, featurise=True):
     print('Parsing sentences', mn, 'to', mx)
     likelihood = []
     count = 0
-    g_batch = defaultdict(float)
+    g_batch = defaultdict(lambda: 0.01)
     count_batch = 0
     best_likelihood = -sys.maxsize
     t = 0
@@ -107,6 +108,20 @@ def main(parse=False, featurise=True):
             # print(en_src)
 
             dw, likel = gradient(dx, dxy, src_fsa, w, weights, skip_dict, index, featurise, LAMBDA)
+
+            # H = 0.0001
+            # for key, value in dw.items():
+            #     wn = dict(w)
+            #     wn[key] += H
+            #     _, likel1 = gradient(dx, dxy, src_fsa, wn, weights, skip_dict, index, featurise, LAMBDA)
+            #     dwk = (likel1 - likel) / H
+            #
+            #     print(key)
+            #     print('ACTUAL GRADIENT', dwk)
+            #     print('COMPUTED GRADIENT', value)
+            #
+            # print('---------')
+
             likelihood.append(likel)
             if dw:
                 for k, dwk in dw.items():
