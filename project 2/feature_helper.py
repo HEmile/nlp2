@@ -233,19 +233,20 @@ def inside_value(cfg: CFG, fweight):
     Imax = {}
     for v in std:
         rules = cfg.get(v)
-        if not rules:
+        if not rules and v.is_terminal():
             Iplus[v] = 0
             Imax[v] = 0
         else:
-            s = -sys.maxsize
-            mx = -sys.maxsize
+            s = 0
+            mx = -np.inf
             for rule in rules:
                 prod = fweight(rule)  # fweight(rule)
                 for symbol in rule.rhs:
                     prod += Iplus[symbol]
-                s = np.logaddexp(s, prod)
+                s += math.exp(prod)
+                # s = np.logaddexp(s, prod)
                 mx = max(prod, mx)
-            Iplus[v] = s
+            Iplus[v] = math.log(s)
             Imax[v] = mx
     return Iplus, Imax, Iplus[std[-1]]
 
@@ -271,7 +272,7 @@ def outside_value(cfg: CFG, I: dict, fweight):
     std = toposort(cfg)
     O = {}
     for v in std:
-        O[v] = -sys.maxsize
+        O[v] = -np.inf
     O[std[-1]] = 0  # Root node
     for v in reversed(std):
         for e in cfg.get(v):
@@ -307,7 +308,7 @@ def expected_features(forest: CFG, edge_features: dict, wmap: dict) -> dict:
     outside = outside_value(forest, Iplus, weight_f)
     expf = defaultdict(float)
     for rule in forest:
-        k = outside[rule.lhs]
+        k = outside[rule.lhs] + weight_f(rule)
         for v in rule.rhs:
             k += Iplus[v]
         k = math.exp(k - tot)
@@ -347,16 +348,16 @@ def viterbi(Imax, dxn, wmap, edge_features):
                 for v in r.rhs:
                     if not v.is_terminal():
                         mx2 += Imax[v]
+                    else:
+                        yield v.obj()
                 mx2 += fweight(r)
                 if mx2 > mx1:
                     argmax1 = r
                     mx1 = mx2
-            yield argmax1
             for v in reversed(argmax1.rhs):  # Ensure leftmost derivation
                 if not v.is_terminal():
                     queue.append(v)
-    cfg = CFG(iternew(u))
-    return language_of_cfg(cfg, u)
+    return sum(iternew(u))
 
 def sampling(Iplus, dxn, wmap, edge_features):
     fweight = get_weight_f(edge_features, wmap)
