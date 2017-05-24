@@ -78,12 +78,14 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
 
         #if ls1 == ls2:  # deletion of source left child
         #    fmap['type:del_lhs'] += 1.0
+        #    fmap['type:source_length'] += 1.0
         #if rs1 == rs2:  # deletion of source right child
         #    fmap['type:del_rhs'] += 1.0
-        #if ls2 == rs1:  # monotone
-        #    fmap['type:mon'] += 1.0
-        #if ls1 == rs2:  # inverted
-        #    fmap['type:inv'] += 1.0
+        #    fmap['type:source_length'] += 1.0
+        if ls2 == rs1:  # monotone
+            fmap['type:mon'] += 1.0
+        if ls1 == rs2:  # inverted
+            fmap['type:inv'] += 1.0
                     
         if l_sym == Nonterminal('I') or r_sym == Nonterminal('I'):
             fmap['type:insertion'] += 1.0
@@ -92,9 +94,9 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
             fmap['type:translation'] += 1.0
             fmap['type:target_length'] += 1.0
             fmap['type:source_length'] += 1.0                
-        if l_sym == Nonterminal('D') or r_sym == Nonterminal('D'):
-            fmap['type:deletion'] += 1.0
-            fmap['type:source_length'] += 1.0
+        #if l_sym == Nonterminal('D') or r_sym == Nonterminal('D'):
+        #   fmap['type:deletion'] += 0.0
+        #   fmap['type:source_length'] += 1.0
     else:  # unary
         symbol = edge.rhs[0]
         if symbol.is_terminal():  # terminal rule
@@ -143,7 +145,12 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
 
                     if skip_grams:
                         #skip bigrams:
-                        fmap['skip:%s' % src_word] += skip_dict[src_word]
+                        fmap['skip:%s' % src_word] = skip_dict[src_word]
+        elif symbol.obj()[0] == Nonterminal('D'):
+            fmap['type:deletion'] += 5.0
+            fmap['type:source_length'] += 1.0
+        elif symbol.obj()[0] == Nonterminal('T'):
+            fmap['type:translation'] += 1.0
         else:  # S -> X
             if edge.lhs == Nonterminal('D(x)') or Nonterminal('D(x, y)'):
                 # here lhs is the root of the intersected forest: S' 
@@ -337,6 +344,7 @@ def viterbi(Imax, dxn, wmap, edge_features):
     fweight = get_weight_f(edge_features, wmap)
     std = toposort(dxn)
     u = std[-1]
+
     def iternew(u):
         queue = [u]
         while queue:
@@ -348,11 +356,17 @@ def viterbi(Imax, dxn, wmap, edge_features):
                 for v in r.rhs:
                     if not v.is_terminal():
                         mx2 += Imax[v]
+                        #print(r)
+                        #print(Imax[v])
+                    #else:
+                        #print(r)
+                        #print(Imax[v])
                 mx2 += fweight(r)
                 if mx2 > mx1:
                     argmax1 = r
                     mx1 = mx2
             for v in reversed(argmax1.rhs):  # Ensure leftmost derivation
+                
                 if not v.is_terminal():
                     queue.append(v)
                 else:

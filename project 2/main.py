@@ -49,8 +49,8 @@ def main(parse=False, featurise=True, predict=True):
     else:
         w = defaultdict(float)
 
-    if not os.path.exists('parses_eps'):
-        os.makedirs('parses_eps')
+    if not os.path.exists('parses'):
+        os.makedirs('parses')
 
     if not os.path.exists('features'):
         os.makedirs('features')
@@ -74,7 +74,7 @@ def main(parse=False, featurise=True, predict=True):
             if len(chi_spl) > SENTENCE_LENGTH or len(en_spl) > SENTENCE_LENGTH:
                 continue
 
-            path = "parses_eps/" + str(index) + '.pkl'
+            path = "parses/" + str(index) + '.pkl'
 
             def map_unk(splt, vocab):
                 for i in range(len(splt)):

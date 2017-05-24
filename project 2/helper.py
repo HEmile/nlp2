@@ -36,7 +36,7 @@ def read_lexicon_ibm(path, cut_vocab = 5, insert_types=7):
         lexicon[x] = sorted(lexicon[x], reverse=True, key=itemgetter(1))
         tot = sum([z[1] for z in lexicon[x]])
         lexicon[x] = lexicon[x][0:min(cut_vocab, len(lexicon[x]))]
-        #lexicon[x].append(('-EPS-', 0))
+        lexicon[x].append(('-EPS-', 0))
         for y, ibm1 in lexicon[x]:
             weights[x, y] = ibm1 / tot
             en_vocab.add(y)
