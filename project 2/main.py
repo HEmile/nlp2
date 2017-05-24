@@ -3,7 +3,7 @@ from helper import *
 from earley import *
 from libitg import *
 from collections import defaultdict
-from feature_helper import gradient, skip_bigrams
+from feature_helper import gradient, skip_bigrams, featurize_edges, likelihood
 import pickle
 import os
 import matplotlib.pyplot as plot
@@ -26,22 +26,42 @@ SGD_ITERATIONS = 10
 
 LAMBDA_LR = 28
 
-LAMBDA_R = 0.0001
+SIGMA = 10
 
 GAMMA0 = 0.1
 
-USE_SPARSE_F = False
+USE_SPARSE_F = True
 
 USE_LOAD_W = False
 
 LOAD_W_PATH = 'wsparse1-50.pkl'
 
-def main(parse=False, featurise=True, predict=True):
+
+def prepare_val(skip_dict, weights_ibm):
+    chi_val, eng_val = read_data('data/dev1.zh-en')
+    pp = []
+    for i in range(len(chi_val)):
+        path = 'parses/val' + str(i) + '.pkl'
+        if not os.path.exists(path):
+            continue
+        with open(path, 'rb') as f:
+            (dx, dxy) = pickle.load(f)
+        src_fsa = make_fsa(chi_val[i])
+        fmapx = featurize_edges(dx, src_fsa, weights_ibm, skip_dict, sparse_del=USE_SPARSE_F, sparse_trans=USE_SPARSE_F,
+                                sparse_ins=USE_SPARSE_F, use_skip_dict=False)
+        fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_del=USE_SPARSE_F, sparse_trans=USE_SPARSE_F,
+                                 sparse_ins=USE_SPARSE_F, use_skip_dict=False, use_bispans=True)
+        pp.append((dx, dxy, fmapx, fmapxy))
+    return pp
+
+
+def main(parse=False, featurise=True, predict=False, sgd=True):
     chinese, english = read_data('data/training.zh-en')
     skip_dict = skip_bigrams(chinese)
     mn, mx = DATA_SET_INDEX * (len(chinese) // PARTITION), (DATA_SET_INDEX + 1) * (len(chinese) // PARTITION)
     chinese, english = chinese[mn: mx], english[mn: mx]
     lexicon, weights, ch_vocab, en_vocab, null_alligned = read_lexicon_ibm('lexicon')
+    val = prepare_val(skip_dict, weights)
 
     if USE_LOAD_W:
         with open(LOAD_W_PATH, 'rb') as f:
@@ -56,7 +76,6 @@ def main(parse=False, featurise=True, predict=True):
         os.makedirs('features')
 
     print('Parsing sentences', mn, 'to', mx)
-    likelihood = []
     count = 0
     g_batch = defaultdict(float)
     count_batch = 0
@@ -110,37 +129,40 @@ def main(parse=False, featurise=True, predict=True):
                 else:
                     continue
 
-            count += 1
-            count_batch += 1
-
             if predict:
                 print(en_src)
+            if sgd:
+                count += 1
+                count_batch += 1
+                dw, likel = gradient(dx, dxy, src_fsa, w, weights, skip_dict, index, featurise, SIGMA, USE_SPARSE_F, predict)
+                if dw:
+                    for k, dwk in dw.items():
+                        g_batch[k] += dwk
+                if count_batch % BATCH_SIZE == 0:
+                    gammat = GAMMA0 * (1 / (1 + GAMMA0 * LAMBDA_LR * t))
+                    t += 1
+                    for k, dwk in g_batch.items():
+                        w[k] += gammat * dwk / BATCH_SIZE
+                    g_batch = defaultdict(float)
+                if count % 100 == 0:
+                    print(index)
+                    print(gammat)
 
-            dw, likel = gradient(dx, dxy, src_fsa, w, weights, skip_dict, index, featurise, LAMBDA_R, USE_SPARSE_F, predict)
-            likelihood.append(likel)
-            if dw:
-                for k, dwk in dw.items():
-                    g_batch[k] += dwk
-            if count_batch % BATCH_SIZE == 0:
-                gammat = GAMMA0 * (1 / (1 + GAMMA0 * LAMBDA_LR * t))
-                t += 1
-                for k, dwk in g_batch.items():
-                    w[k] += gammat * dwk / BATCH_SIZE
-                g_batch = defaultdict(float)
-            if count % 50 == 0:
-                print(index)
-                print(gammat)
-                l = sum(likelihood) / count
-                print(l)
-                if l > best_likelihood:
-                    modifier = 'sparse' if USE_SPARSE_F else ''
-                    modifier += str(BATCH_SIZE) + '-' + str(LAMBDA_LR)
-                    print('m:', modifier)
-                    with open('w'+modifier+str(iter)+'.pkl', 'wb') as f:
-                        pickle.dump(dict(w), f)
-                        best_likelihood = l
-                likelihood = []
-                count = 0
+                    lls = []
+                    for vdx, vdxy, vfmapx, vfmapxy in val:
+                        ll = likelihood(vdx, vdxy, None, w, None, None, sigma=SIGMA, fmapxn=vfmapx, fmapxy=vfmapxy)
+                        lls.append(ll)
+                    val_ll = sum(lls) / len(lls)
+
+                    print(val_ll)
+                    if val_ll > best_likelihood:
+                        modifier = 'sparse' if USE_SPARSE_F else ''
+                        modifier += str(BATCH_SIZE) + '-' + str(LAMBDA_LR)
+                        print('m:', modifier)
+                        with open('w'+modifier+str(iter)+'.pkl', 'wb') as f:
+                            pickle.dump(dict(w), f)
+                            best_likelihood = val_ll
+                    count = 0
 
 
 def test_gradient():
@@ -149,6 +171,7 @@ def test_gradient():
     ls_gr_ac = []
     ls_gr_cp = []
     ls_gr_ll = []
+    sigma = 5
     chinese, english = read_data('data/training.zh-en')
     _, weights, _, _, _ = read_lexicon_ibm('lexicon')
     w1 = defaultdict(lambda: (random.random() - 0.5)*4)
@@ -160,10 +183,10 @@ def test_gradient():
         H = 0.0001
         key = 'type:target_length'
         w1[key] = w
-        dw, likel1 = gradient(dx1, dxy1, src_fsa, w1, weights, None, 3, True, 0)
+        dw, likel1 = gradient(dx1, dxy1, src_fsa, w1, weights, None, 3, True, sigma)
         w2 = dict(w1)
         w2[key] = w + H
-        _, likel2 = gradient(dx1, dxy1, src_fsa, w2, weights, None, 3, True, 0)
+        _, likel2 = gradient(dx1, dxy1, src_fsa, w2, weights, None, 3, True, sigma)
         dwk = (likel2 - likel1) / H
 
         ls_gr_x.append(w)

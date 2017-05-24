@@ -150,3 +150,17 @@ def make_fsa(string: str) -> FSA:
         fsa.add_arc(i, i + 1, word)  # label the arc with the current word
     fsa.make_final(fsa.nb_states() - 1)
     return fsa
+
+def make_val_fsa(strings: list) -> FSA:
+    """Converts a sentence (string) to an FSA (labels are python str objects)"""
+    fsa = FSA()
+    j = 0
+    for string in strings:
+        fsa.add_state(initial=True)
+        for word in string.split():
+            fsa.add_state()  # create a destination state
+            fsa.add_arc(j, j + 1, word)  # label the arc with the current word
+            j += 1
+        j += 1
+        fsa.make_final(fsa.nb_states() - 1)
+    return fsa

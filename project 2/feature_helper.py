@@ -7,6 +7,7 @@ from alg import *
 import pickle
 import random
 import math
+import scipy.stats
 
 
 def get_terminal_string(symbol: Symbol):
@@ -40,6 +41,8 @@ def get_bispans(symbol: Span):
 def get_source_word(fsa: FSA, origin: int, destination: int) -> str:
     """Returns the python string representing a source word from origin to destination (assuming there's a single one)"""
     labels = list(fsa.labels(origin, destination))
+    if len(labels) != 1:
+        print('XD')
     assert len(labels) == 1, 'Use this function only when you know the path is unambiguous, found %d labels %s for (%d, %d)' % (len(labels), labels, origin, destination)
     return labels[0]
 
@@ -406,12 +409,14 @@ def sampling(Iplus, dxn, wmap, edge_features):
 
 
 def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, skip_dict, index,
-             get_features=False, lamb=0.0001, sparse=False, predict=False) -> dict:
-    # print('weight type:insertion', weight['type:insertion'])
-    fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=False)
-    fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=False, use_bispans=True)
-    with open('features/' + str(index) + '.pkl', 'wb') as f:
-        pickle.dump((fmapxn, fmapxy), f)
+             get_features=False, sigma=0.0001, sparse=False, predict=False,
+             fmapxn=None, fmapxy=None) -> dict:
+    if not fmapxn:
+        fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=False)
+    if not fmapxy:
+        fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=False, use_bispans=True)
+    # with open('features/' + str(index) + '.pkl', 'wb') as f:
+    #     pickle.dump((fmapxn, fmapxy), f)
     expfxn, Imax, totxn = expected_features(dxn, fmapxn, weight)
 
     if predict:
@@ -427,6 +432,25 @@ def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, 
     features.union(expfxy.keys())
     
     for f in features:
-        gd[f] = expfxy[f] - expfxn[f] - lamb * weight[f]
+        gd[f] = expfxy[f] - expfxn[f] - weight[f] / (sigma * sigma)
 
-    return gd, totxy - totxn
+    sm = (1/(sigma * sigma)) * sum([-(x * x) for x in weight.values()])
+    return gd, totxy - totxn + sm
+
+
+def likelihood(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, skip_dict,
+             sigma=0.0001, sparse=False, fmapxn=None, fmapxy=None) -> dict:
+    if not fmapxn:
+        fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=False)
+    if not fmapxy:
+        fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=False, use_bispans=True)
+    weight_f = get_weight_f(fmapxn, weight)
+    _, _, Irootxn = inside_value(dxn, weight_f)
+    weight_f = get_weight_f(fmapxy, weight)
+    _, _, Irootxy = inside_value(dxy, weight_f)
+
+    regres = 0
+    for k, v in weight.items():
+        regres += v * v
+    sm = (1/(sigma * sigma)) * sum([-(x * x) for x in weight.values()])
+    return Irootxy - Irootxn + sm
