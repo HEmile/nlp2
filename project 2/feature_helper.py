@@ -348,8 +348,6 @@ def viterbi(Imax, dxn, wmap, edge_features):
                 for v in r.rhs:
                     if not v.is_terminal():
                         mx2 += Imax[v]
-                    else:
-                        yield v.obj()
                 mx2 += fweight(r)
                 if mx2 > mx1:
                     argmax1 = r
@@ -357,7 +355,10 @@ def viterbi(Imax, dxn, wmap, edge_features):
             for v in reversed(argmax1.rhs):  # Ensure leftmost derivation
                 if not v.is_terminal():
                     queue.append(v)
-    return sum(iternew(u))
+                else:
+                    if v.obj()[2]-v.obj()[1] > 0:
+                        yield v.obj()[0].obj()
+    return ' '.join(iternew(u))
 
 def sampling(Iplus, dxn, wmap, edge_features):
     fweight = get_weight_f(edge_features, wmap)
@@ -402,7 +403,10 @@ def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, 
     if predict:
         print(viterbi(Imax, dxn, weight, fmapxn))
 
-    expfxy, _, totxy = expected_features(dxy, fmapxy, weight)
+    expfxy, Imax2, totxy = expected_features(dxy, fmapxy, weight)
+    
+    #if predict:
+    #    print(viterbi(Imax2, dxy, weight, fmapxy))
 
     gd = defaultdict(float)
     features = set(expfxn.keys())

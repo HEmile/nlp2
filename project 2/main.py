@@ -14,7 +14,7 @@ import random
 
 LIMIT_TRANS_LENGTH = 3
 
-PARTITION = 1
+PARTITION = 60
 
 DATA_SET_INDEX = 0
 
@@ -36,7 +36,7 @@ USE_LOAD_W = False
 
 LOAD_W_PATH = 'wsparse1-50.pkl'
 
-def main(parse=False, featurise=True, predict=False):
+def main(parse=False, featurise=True, predict=True):
     chinese, english = read_data('data/training.zh-en')
     skip_dict = skip_bigrams(chinese)
     mn, mx = DATA_SET_INDEX * (len(chinese) // PARTITION), (DATA_SET_INDEX + 1) * (len(chinese) // PARTITION)
@@ -49,8 +49,8 @@ def main(parse=False, featurise=True, predict=False):
     else:
         w = defaultdict(float)
 
-    if not os.path.exists('parses'):
-        os.makedirs('parses')
+    if not os.path.exists('parses_eps'):
+        os.makedirs('parses_eps')
 
     if not os.path.exists('features'):
         os.makedirs('features')
@@ -74,7 +74,7 @@ def main(parse=False, featurise=True, predict=False):
             if len(chi_spl) > SENTENCE_LENGTH or len(en_spl) > SENTENCE_LENGTH:
                 continue
 
-            path = "parses/" + str(index) + '.pkl'
+            path = "parses_eps/" + str(index) + '.pkl'
 
             def map_unk(splt, vocab):
                 for i in range(len(splt)):
@@ -88,6 +88,7 @@ def main(parse=False, featurise=True, predict=False):
             tgt_fsa = make_fsa(en_src)
 
             if parse:
+                print(index)
                 lexicon['-EPS-'] = set(null_alligned)
                 for c in chi_spl:  # Belangrijk voor report: Deze toevoegen zorgt ervoor dat heel veel parset
                     lexicon['-EPS-'] = lexicon['-EPS-'].union([lexicon[c][0]])
