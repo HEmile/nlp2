@@ -8,6 +8,7 @@ import pickle
 import os
 import matplotlib.pyplot as plot
 import numpy as np
+import math
 import random
 
 
@@ -19,15 +20,15 @@ DATA_SET_INDEX = 0
 
 SENTENCE_LENGTH = 10
 
-BATCH_SIZE = 30
+BATCH_SIZE = 29
 
 SGD_ITERATIONS = 10
 
-LAMBDA_LR = 10
+LAMBDA_LR = 28
 
 LAMBDA_R = 0.0001
 
-GAMMA0 = 0.001
+GAMMA0 = 0.1
 
 USE_SPARSE_F = False
 
@@ -146,29 +147,37 @@ def test_gradient():
     ls_gr_y = []
     ls_gr_ac = []
     ls_gr_cp = []
+    ls_gr_ll = []
     chinese, english = read_data('data/training.zh-en')
     _, weights, _, _, _ = read_lexicon_ibm('lexicon')
-    for w in np.arange(-2, 2, 0.01):
+    w1 = defaultdict(lambda: (random.random() - 0.5)*4)
+    # w1 = defaultdict(float)
+    for w in np.arange(-5, 5, 0.01):
         src_fsa = make_fsa(chinese[3])
         with open('parses/3.pkl', 'rb') as f:
             dx1, dxy1 = pickle.load(f)
         H = 0.0001
         key = 'type:target_length'
-        w1 = defaultdict(float)
         w1[key] = w
-        w2 = defaultdict(float)
-        w2[key] = w + H
         dw, likel1 = gradient(dx1, dxy1, src_fsa, w1, weights, None, 3, True, 0)
+        w2 = dict(w1)
+        w2[key] = w + H
         _, likel2 = gradient(dx1, dxy1, src_fsa, w2, weights, None, 3, True, 0)
         dwk = (likel2 - likel1) / H
 
         ls_gr_x.append(w)
-        ls_gr_y.append(dwk - dw[key])
         ls_gr_ac.append(dwk)
+
+        sum = 0
+        for v in w1.values():
+            sum += 2 * v
+
         ls_gr_cp.append(dw[key])
+        ls_gr_ll.append(likel1)
 
     plot.plot(ls_gr_x, ls_gr_ac)
     plot.plot(ls_gr_x, ls_gr_cp)
+    # plot.plot(ls_gr_x, ls_gr_ll)
     plot.show()
 
 
