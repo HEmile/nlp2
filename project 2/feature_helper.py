@@ -147,7 +147,16 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
                         #skip bigrams:
                         fmap['skip:%s' % src_word] += skip_dict[src_word]
         else:  # S -> X
-            fmap['top'] += 1.0
+            if edge.lhs == Nonterminal('D(x)') or Nonterminal('D(x, y)'):
+                # here lhs is the root of the intersected forest: S' 
+                # do not weight this edge
+                # note that Earley introduces S' -> S
+                # thus this edge is not a real clique in the CRF, 
+                # it's just a convenience that Earley adds to the forest
+                # in order to guarantee its root is unique
+                pass  
+            else:
+                pass
     return fmap
 
 
@@ -407,7 +416,7 @@ def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, 
     features.union(expfxy.keys())
     
     for f in features:
-        gradient[f] = expfxy[f] - expfxn[f] - lamb * weight[f]
+        gradient[f] = expfxy[f] - expfxn[f] #- lamb * weight[f]
     # print(gradient)
     # print('gradient type:insertion', gradient['type:insertion'])
 
