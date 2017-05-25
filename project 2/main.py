@@ -14,7 +14,7 @@ import random
 
 LIMIT_TRANS_LENGTH = 3
 
-PARTITION = 60
+PARTITION = 1
 
 DATA_SET_INDEX = 0
 
@@ -24,17 +24,17 @@ BATCH_SIZE = 29
 
 SGD_ITERATIONS = 10
 
-LAMBDA_LR = 28
+LAMBDA_LR = 10
 
-SIGMA = 10
+SIGMA = 100
 
 GAMMA0 = 0.1
 
 USE_SPARSE_F = True
 
-USE_LOAD_W = False
+USE_LOAD_W = True
 
-LOAD_W_PATH = 'wsparse1-50.pkl'
+LOAD_W_PATH = 'wsparse29-10-1000.pkl'
 
 
 def prepare_val(skip_dict, weights_ibm):
@@ -55,7 +55,11 @@ def prepare_val(skip_dict, weights_ibm):
     return pp
 
 
+<<<<<<< HEAD
 def main(parse=False, featurise=True, predict=True, sgd=True):
+=======
+def main(parse=False, featurise=True, predict=True, sgd=True, save_w=False):
+>>>>>>> origin/master
     chinese, english = read_data('data/training.zh-en')
     skip_dict = skip_bigrams(chinese)
     mn, mx = DATA_SET_INDEX * (len(chinese) // PARTITION), (DATA_SET_INDEX + 1) * (len(chinese) // PARTITION)
@@ -157,11 +161,12 @@ def main(parse=False, featurise=True, predict=True, sgd=True):
                     print(val_ll)
                     if val_ll > best_likelihood:
                         modifier = 'sparse' if USE_SPARSE_F else ''
-                        modifier += str(BATCH_SIZE) + '-' + str(LAMBDA_LR)
+                        modifier += str(BATCH_SIZE) + '-' + str(LAMBDA_LR) + '-' + str(SIGMA)
                         print('m:', modifier)
-                        with open('w'+modifier+str(iter)+'.pkl', 'wb') as f:
-                            pickle.dump(dict(w), f)
-                            best_likelihood = val_ll
+                        if save_w:
+                            with open('w'+modifier+str(iter)+'.pkl', 'wb') as f:
+                                pickle.dump(dict(w), f)
+                                best_likelihood = val_ll
                     count = 0
 
 
