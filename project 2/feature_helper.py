@@ -324,7 +324,7 @@ def expected_features(forest: CFG, edge_features: dict, wmap: dict) -> dict:
         k = math.exp(k - tot)
         for f, v in edge_features[rule].items():
             expf[f] += k * v
-    return expf, Imax, tot
+    return expf, Iplus, Imax, tot
 
 
 def expected_features_antilog(forest: CFG, edge_features: dict, wmap: dict) -> dict:
@@ -386,6 +386,7 @@ def sampling(Iplus, dxn, wmap, edge_features):
         while queue:
             u = queue.pop()
             probabilities = []
+            argmax = None
             for r in dxn[u]:
                 mx2 = 0
                 for v in r.rhs:
@@ -396,16 +397,18 @@ def sampling(Iplus, dxn, wmap, edge_features):
             tot = sum([x[0] for x in probabilities])
             samp = random.random() * tot
             s = 0
+            print(probabilities)
             for i in range(len(probabilities)):
                 if samp < s + probabilities[i][0]:
                     argmax = probabilities[i][1]
                     break
-            yield argmax
             for v in reversed(argmax.rhs):  # Ensure leftmost derivation
                 if not v.is_terminal():
                     queue.append(v)
-    cfg = CFG(iternew(u))
-    return language_of_cfg(cfg, u)
+                else:
+                    if v.obj()[2]-v.obj()[1] > 0:
+                        yield v.obj()[0].obj()
+    return ' '.join(iternew(u))
 
 
 def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, skip_dict, index,
@@ -417,10 +420,12 @@ def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, 
         fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=False, use_bispans=True)
     # with open('features/' + str(index) + '.pkl', 'wb') as f:
     #     pickle.dump((fmapxn, fmapxy), f)
-    expfxn, Imax, totxn = expected_features(dxn, fmapxn, weight)
+    expfxn, Iplus, Imax, totxn = expected_features(dxn, fmapxn, weight)
 
     if predict:
         print(viterbi(Imax, dxn, weight, fmapxn))
+        print('---')
+        print(sampling(Iplus, dxn, weight, fmapxn))
 
     expfxy, Imax2, totxy = expected_features(dxy, fmapxy, weight)
     

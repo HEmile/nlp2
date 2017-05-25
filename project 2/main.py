@@ -55,7 +55,7 @@ def prepare_val(skip_dict, weights_ibm):
     return pp
 
 
-def main(parse=False, featurise=True, predict=False, sgd=True):
+def main(parse=False, featurise=True, predict=True, sgd=True):
     chinese, english = read_data('data/training.zh-en')
     skip_dict = skip_bigrams(chinese)
     mn, mx = DATA_SET_INDEX * (len(chinese) // PARTITION), (DATA_SET_INDEX + 1) * (len(chinese) // PARTITION)
