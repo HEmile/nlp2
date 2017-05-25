@@ -54,12 +54,7 @@ def prepare_val(skip_dict, weights_ibm):
         pp.append((dx, dxy, fmapx, fmapxy))
     return pp
 
-
-<<<<<<< HEAD
-def main(parse=False, featurise=True, predict=True, sgd=True):
-=======
 def main(parse=False, featurise=True, predict=True, sgd=True, save_w=False):
->>>>>>> origin/master
     chinese, english = read_data('data/training.zh-en')
     skip_dict = skip_bigrams(chinese)
     mn, mx = DATA_SET_INDEX * (len(chinese) // PARTITION), (DATA_SET_INDEX + 1) * (len(chinese) // PARTITION)
