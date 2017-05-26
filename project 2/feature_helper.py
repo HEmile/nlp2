@@ -77,17 +77,23 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
         fmap['type:span_source_lhs'] += (ls2-ls1)
         fmap['type:span_source_rhs'] += (rs2-rs1)
 
-        #if ls1 == ls2:  # deletion of source left child
-        #    fmap['type:del_lhs'] += 1.0
-        #    fmap['type:source_length'] += 1.0
-        #if rs1 == rs2:  # deletion of source right child
-        #    fmap['type:del_rhs'] += 1.0
-        #    fmap['type:source_length'] += 1.0
+        if ls1 == ls2:  # deletion of source left child
+           fmap['type:del_lhs'] += 1.0
+           fmap['type:source_length'] += 1.0
+        if rs1 == rs2:  # deletion of source right child
+           fmap['type:del_rhs'] += 1.0
+           fmap['type:source_length'] += 1.0
         if ls2 == rs1:  # monotone
             fmap['type:mon'] += 1.0
         if ls1 == rs2:  # inverted
             fmap['type:inv'] += 1.0
-                    
+
+        if skip_grams:
+            if ls2-ls1 == 1 and rs2-rs1 == 1:
+                w1, w2 = get_source_word(src_fsa, ls1, ls2), get_source_word(src_fsa, rs1, rs2)
+                fmap['skip:%s/%s' % (w1, w2)] += 1.0
+
+
         if l_sym == Nonterminal('I') or r_sym == Nonterminal('I'):
             fmap['type:insertion'] += 1.0
             fmap['type:target_length'] += 1.0
@@ -145,7 +151,7 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
                     if sparse_trans:
                         fmap['trans:%s/%s' % (src_word, tgt_word)] += 1.0
 
-                    if skip_grams:
+                    # if skip_grams:
                         #skip bigrams:
                         try:
                             next_word = get_source_word(src_fsa, s1+1, s2+1)
@@ -158,6 +164,7 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
                             fmap['skip:%s%s' % (src_word, second_word)] = skip_dict[(src_word, second_word)]
                         except AssertionError:
                             pass
+
         elif symbol.obj()[0] == Nonterminal('D'):
             fmap['type:deletion'] += 1.0
             fmap['type:source_length'] += 1.0
@@ -434,12 +441,12 @@ def sampling(Iplus, dxn, wmap, edge_features):
 
 
 def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, skip_dict, index,
-             get_features=False, sigma=0.0001, sparse=False,
+             get_features=False, sigma=0.0001, sparse=False, use_skipdict=False,
              fmapxn=None, fmapxy=None) -> dict:
     if not fmapxn:
-        fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=True)
+        fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=use_skipdict)
     if not fmapxy:
-        fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=True, use_bispans=True)
+        fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=use_skipdict, use_bispans=True)
 
     expfxn, totxn = expected_features(dxn, fmapxn, weight)
 
@@ -457,11 +464,11 @@ def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, 
 
 
 def likelihood(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, skip_dict,
-             sigma=0.0001, sparse=False, fmapxn=None, fmapxy=None) -> dict:
+             sigma=0.0001, sparse=False, use_skipdict=False, fmapxn=None, fmapxy=None) -> dict:
     if not fmapxn:
-        fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=False)
+        fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=use_skipdict)
     if not fmapxy:
-        fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=False, use_bispans=True)
+        fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=use_skipdict, use_bispans=True)
     weight_f = get_weight_f(fmapxn, weight)
     Iplusxn, Imax, Irootxn = inside_value(dxn, weight_f)
     weight_f = get_weight_f(fmapxy, weight)
@@ -474,7 +481,6 @@ def likelihood(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict
         regres += v * v
     sm = (1/(sigma * sigma)) * sum([-(x * x) for x in weight.values()])
     return Irootxy - Irootxn
-
 
 def predict(dx: CFG, fmapx, weight: dict, type='sampling') -> str:
     weight_f = get_weight_f(fmapx, weight)
