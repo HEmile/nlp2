@@ -75,7 +75,7 @@ def prepare_test(skip_dict, weights_ibm):
 
 
 def main(parse=False, featurise=True, sgd=True, save_w=True, validate=True, test=False):
-    chinese, english = read_data('data/dev1.zh-en')
+    chinese, english = read_data('data/training.zh-en')
     skip_dict = skip_bigrams(chinese)
     mn, mx = DATA_SET_INDEX * (len(chinese) // PARTITION), (DATA_SET_INDEX + 1) * (len(chinese) // PARTITION)
     chinese, english = chinese[mn: mx], english[mn: mx]
