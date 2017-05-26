@@ -427,12 +427,12 @@ def sampling(Iplus, dxn, wmap, edge_features):
 
 
 def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, skip_dict, index,
-             get_features=False, sigma=0.0001, sparse=False,
+             get_features=False, sigma=0.0001, sparse=False, use_skipdict=False,
              fmapxn=None, fmapxy=None) -> dict:
     if not fmapxn:
-        fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=False)
+        fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=use_skipdict)
     if not fmapxy:
-        fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=False, use_bispans=True)
+        fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=use_skipdict, use_bispans=True)
 
     expfxn, totxn = expected_features(dxn, fmapxn, weight)
 
@@ -450,11 +450,11 @@ def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, 
 
 
 def likelihood(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, skip_dict,
-             sigma=0.0001, sparse=False, fmapxn=None, fmapxy=None) -> dict:
+             sigma=0.0001, sparse=False, use_skipdict=False, fmapxn=None, fmapxy=None) -> dict:
     if not fmapxn:
-        fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=False)
+        fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=use_skipdict)
     if not fmapxy:
-        fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=False, use_bispans=True)
+        fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=use_skipdict, use_bispans=True)
     weight_f = get_weight_f(fmapxn, weight)
     Iplusxn, Imax, Irootxn = inside_value(dxn, weight_f)
     weight_f = get_weight_f(fmapxy, weight)
@@ -467,7 +467,6 @@ def likelihood(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict
         regres += v * v
     sm = (1/(sigma * sigma)) * sum([-(x * x) for x in weight.values()])
     return Irootxy - Irootxn
-
 
 def predict(dx: CFG, fmapx, weight: dict, type='sampling') -> str:
     weight_f = get_weight_f(fmapx, weight)
