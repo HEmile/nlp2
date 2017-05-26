@@ -247,16 +247,16 @@ def inside_value(cfg: CFG, fweight):
             Iplus[v] = 0
             Imax[v] = 0
         else:
-            s = 0
+            s = -np.inf
             mx = -np.inf
             for rule in rules:
                 prod = fweight(rule)  # fweight(rule)
                 for symbol in rule.rhs:
                     prod += Iplus[symbol]
-                s += math.exp(prod)
-                # s = np.logaddexp(s, prod)
+                # s += math.exp(prod)
+                s = np.logaddexp(s, prod)
                 mx = max(prod, mx)
-            Iplus[v] = math.log(s)
+            Iplus[v] = s
             Imax[v] = mx
     return Iplus, Imax, Iplus[std[-1]]
 
@@ -341,7 +341,7 @@ def expected_features(forest: CFG, edge_features: dict, wmap: dict) -> dict:
         k = math.exp(k - tot)
         for f, v in edge_features[rule].items():
             expf[f] += k * v
-    return expf, Iplus, Imax, tot
+    return expf, tot
 
 
 def expected_features_antilog(forest: CFG, edge_features: dict, wmap: dict) -> dict:
@@ -409,14 +409,13 @@ def sampling(Iplus, dxn, wmap, edge_features):
                     if not v.is_terminal():
                         mx2 += Iplus[v]
                 mx2 += fweight(r)
-                probabilities.append((mx2/Iplus[u], r))
-            tot = sum([x[0] for x in probabilities])
-            samp = random.random() * tot
-            s = 0
-            print(probabilities)
-            for i in range(len(probabilities)):
-                if samp < s + probabilities[i][0]:
-                    argmax = probabilities[i][1]
+                probabilities.append((mx2 - Iplus[u], r))
+            samp = math.log(random.random())
+            s = -np.inf
+            for log_prob, r in probabilities:
+                s = np.logaddexp(s, log_prob)
+                if samp <= s:
+                    argmax = r
                     break
             for v in reversed(argmax.rhs):  # Ensure leftmost derivation
                 if not v.is_terminal():
@@ -435,9 +434,9 @@ def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, 
     if not fmapxy:
         fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=False, use_bispans=True)
 
-    expfxn, Imax, totxn = expected_features(dxn, fmapxn, weight)
+    expfxn, totxn = expected_features(dxn, fmapxn, weight)
 
-    expfxy, Imax2, totxy = expected_features(dxy, fmapxy, weight)
+    expfxy, totxy = expected_features(dxy, fmapxy, weight)
 
     gd = defaultdict(float)
     features = set(expfxn.keys())
@@ -470,7 +469,10 @@ def likelihood(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict
     return Irootxy - Irootxn
 
 
-def predict(dx: CFG, fmapx, weight: dict) -> str:
+def predict(dx: CFG, fmapx, weight: dict, type='sampling') -> str:
     weight_f = get_weight_f(fmapx, weight)
     Iplus, Imax, _ = inside_value(dx, weight_f)
-    return sampling(Iplus, dx, weight, fmapx)
+    if type == 'sampling':
+        return sampling(Iplus, dx, weight, fmapx)
+    else:
+        return viterbi(Imax, dx, weight, fmapx)

@@ -29,7 +29,7 @@ LAMBDA_LR = 10
 
 SIGMA = 10
 
-GAMMA0 = 0.1
+GAMMA0 = 0.01
 
 USE_SPARSE_F = True
 
@@ -87,7 +87,7 @@ def main(parse=False, featurise=True, sgd=True, save_w=False, validate=True, tes
         with open(LOAD_W_PATH, 'rb') as f:
             w = defaultdict(float, pickle.load(f))
     else:
-        w = defaultdict(lambda: 2*(random.random() - 0.5))
+        w = defaultdict(lambda: (random.random() - 0.5))
 
     if not os.path.exists('parses'):
         os.makedirs('parses')
@@ -165,7 +165,7 @@ def main(parse=False, featurise=True, sgd=True, save_w=False, validate=True, tes
                     g_batch = defaultdict(float)
                 if count % 200 == 0:
                     print(index)
-                    print(1) # gammat
+                    print(1)
 
                     if validate:
                         lls = []
