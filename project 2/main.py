@@ -74,13 +74,13 @@ def prepare_test(skip_dict, weights_ibm):
     return pp
 
 
-def main(parse=False, featurise=True, sgd=False, save_w=False, validate=True, test=False):
+def main(parse=False, featurise=True, sgd=True, save_w=True, validate=True, test=False):
     chinese, english = read_data('data/dev1.zh-en')
     skip_dict = skip_bigrams(chinese)
     mn, mx = DATA_SET_INDEX * (len(chinese) // PARTITION), (DATA_SET_INDEX + 1) * (len(chinese) // PARTITION)
     chinese, english = chinese[mn: mx], english[mn: mx]
     lexicon, weights, ch_vocab, en_vocab, null_alligned = read_lexicon_ibm('lexicon')
-    
+
     if validate:
         print('preparing validation set')
         val = prepare_val(skip_dict, weights)
