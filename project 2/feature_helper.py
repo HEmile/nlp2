@@ -79,17 +79,23 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
         fmap['type:span_source_lhs'] += (ls2-ls1)
         fmap['type:span_source_rhs'] += (rs2-rs1)
 
-        #if ls1 == ls2:  # deletion of source left child
-        #    fmap['type:del_lhs'] += 1.0
-        #    fmap['type:source_length'] += 1.0
-        #if rs1 == rs2:  # deletion of source right child
-        #    fmap['type:del_rhs'] += 1.0
-        #    fmap['type:source_length'] += 1.0
+        if ls1 == ls2:  # deletion of source left child
+           fmap['type:del_lhs'] += 1.0
+           fmap['type:source_length'] += 1.0
+        if rs1 == rs2:  # deletion of source right child
+           fmap['type:del_rhs'] += 1.0
+           fmap['type:source_length'] += 1.0
         if ls2 == rs1:  # monotone
             fmap['type:mon'] += 1.0
         if ls1 == rs2:  # inverted
             fmap['type:inv'] += 1.0
-                    
+
+        if skip_grams:
+            if ls2-ls1 == 1 and rs2-rs1 == 1:
+                w1, w2 = get_source_word(src_fsa, ls1, ls2), get_source_word(src_fsa, rs1, rs2)
+                fmap['skip:%s/%s' % (w1, w2)] += 1.0
+
+
         if l_sym == Nonterminal('I') or r_sym == Nonterminal('I'):
             fmap['type:insertion'] += 1.0
             fmap['type:target_length'] += 1.0
@@ -146,9 +152,9 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
                     if sparse_trans:
                         fmap['trans:%s/%s' % (src_word, tgt_word)] += 1.0
 
-                    if skip_grams:
+                    # if skip_grams:
                         #skip bigrams:
-                        fmap['skip:%s' % src_word] = skip_dict[src_word]
+                        # fmap['skip:%s' % src_word] = skip_dict[src_word]
         elif symbol.obj()[0] == Nonterminal('D'):
             fmap['type:deletion'] += 1.0
             fmap['type:source_length'] += 1.0

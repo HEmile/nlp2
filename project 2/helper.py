@@ -16,7 +16,7 @@ def read_data(path):
 
 def read_lexicon_ibm(path, cut_vocab = 5, insert_types=7):
     lexicon = defaultdict(set)
-    weights = defaultdict(float)
+    weights = defaultdict(lambda: 0.0001)
     null_alligned = []
     with open(path, encoding='utf-8') as istream:
         for n, line in enumerate(istream):
@@ -26,8 +26,8 @@ def read_lexicon_ibm(path, cut_vocab = 5, insert_types=7):
             words = line.split()
             x, y, ibm1, ibm2 = words
             try:
-                # if x == '<NULL>':
-                #     null_alligned.append((y, float(ibm1)))
+                if x == '<NULL>':
+                    null_alligned.append((y, float(ibm1)))
                 lexicon[x].add((y, float(ibm1)))
             except ValueError:
                 pass
@@ -36,7 +36,7 @@ def read_lexicon_ibm(path, cut_vocab = 5, insert_types=7):
         lexicon[x] = sorted(lexicon[x], reverse=True, key=itemgetter(1))
         tot = sum([z[1] for z in lexicon[x]])
         lexicon[x] = lexicon[x][0:min(cut_vocab, len(lexicon[x]))]
-        lexicon[x].append(('-EPS-', 0))
+        lexicon[x].append(('-EPS-', 0.0001))   # FIX DELETION PROB TO 0.0001
         for y, ibm1 in lexicon[x]:
             weights[x, y] = ibm1 / tot
             en_vocab.add(y)

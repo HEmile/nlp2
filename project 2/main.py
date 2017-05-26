@@ -31,7 +31,7 @@ SIGMA = 10
 
 GAMMA0 = 0.1
 
-USE_SPARSE_F = False
+USE_SPARSE_F = True
 
 USE_SKIP_DICT = True
 
@@ -39,7 +39,7 @@ USE_LOAD_W = False
 
 LOAD_W_PATH = 'wsparse29-10-1000.pkl'
 
-PRINT_COUNT = 500  # Amount of training samples to do SGD over until we print val and test results
+PRINT_COUNT = 2000  # Amount of training samples to do SGD over until we print val and test results
 
 
 def prepare_val(skip_dict, weights_ibm):
@@ -74,7 +74,7 @@ def prepare_test(skip_dict, weights_ibm):
     return pp
 
 
-def main(parse=False, featurise=True, sgd=True, save_w=False, validate=True, test=True):
+def main(parse=False, featurise=True, sgd=True, save_w=True, validate=True, test=True):
     chinese, english = read_data('data/training.zh-en')
     skip_dict = skip_bigrams(chinese)
     mn, mx = DATA_SET_INDEX * (len(chinese) // PARTITION), (DATA_SET_INDEX + 1) * (len(chinese) // PARTITION)
@@ -169,7 +169,7 @@ def main(parse=False, featurise=True, sgd=True, save_w=False, validate=True, tes
                     g_batch = defaultdict(float)
             if count % PRINT_COUNT == 0:
                 print(index)
-                print(1)
+                print(gammat)
 
                 if validate:
                     lls = []
@@ -195,6 +195,7 @@ def main(parse=False, featurise=True, sgd=True, save_w=False, validate=True, tes
                         p.wait()
                 if save_w and (not validate or val_ll > best_likelihood):
                     modifier = 'sparse' if USE_SPARSE_F else ''
+                    modifier += 'skip' if USE_SKIP_DICT else ''
                     modifier += str(BATCH_SIZE) + '-' + str(LAMBDA_LR) + '-' + str(SIGMA)
                     print('m:', modifier)
                     if save_w:
