@@ -41,8 +41,6 @@ def get_bispans(symbol: Span):
 def get_source_word(fsa: FSA, origin: int, destination: int) -> str:
     """Returns the python string representing a source word from origin to destination (assuming there's a single one)"""
     labels = list(fsa.labels(origin, destination))
-    if len(labels) != 1:
-        print('XD')
     assert len(labels) == 1, 'Use this function only when you know the path is unambiguous, found %d labels %s for (%d, %d)' % (len(labels), labels, origin, destination)
     return labels[0]
 
@@ -100,6 +98,7 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
         if l_sym == Nonterminal('D') or r_sym == Nonterminal('D'):
             fmap['type:deletion'] += 1.0
             fmap['type:source_length'] += 1.0
+                
     else:  # unary
         symbol = edge.rhs[0]
         if symbol.is_terminal():  # terminal rule
@@ -148,7 +147,17 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
 
                     if skip_grams:
                         #skip bigrams:
-                        fmap['skip:%s' % src_word] = skip_dict[src_word]
+                        try:
+                            next_word = get_source_word(src_fsa, s1+1, s2+1)
+                            fmap['skip:%s%s' % (src_word, next_word)] = skip_dict[(src_word, next_word)]
+                        except AssertionError:
+                            pass
+                            
+                        try:
+                            second_word = get_source_word(src_fsa, s1+2, s2+2)
+                            fmap['skip:%s%s' % (src_word, second_word)] = skip_dict[(src_word, second_word)]
+                        except AssertionError:
+                            pass
         elif symbol.obj()[0] == Nonterminal('D'):
             fmap['type:deletion'] += 1.0
             fmap['type:source_length'] += 1.0
@@ -173,9 +182,7 @@ def skip_bigrams(chinese) -> dict:
     for sen in chinese:
         skips = list(skipgrams(sen.split(),2, 1))
         for skip in skips:
-            (skip1, skip2) = skip
-            skip_dict[skip1] += 1
-            skip_dict[skip2] += 1
+            skip_dict[skip] += 1
     return skip_dict
 
 def featurize_edges(forest, src_fsa, weights_ibm, skip_dict, use_bispans=False,
@@ -430,9 +437,9 @@ def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, 
              get_features=False, sigma=0.0001, sparse=False,
              fmapxn=None, fmapxy=None) -> dict:
     if not fmapxn:
-        fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=False)
+        fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=True)
     if not fmapxy:
-        fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=False, use_bispans=True)
+        fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=True, use_bispans=True)
 
     expfxn, totxn = expected_features(dxn, fmapxn, weight)
 
