@@ -21,21 +21,21 @@ DATA_SET_INDEX = 0
 
 SENTENCE_LENGTH = 10
 
-BATCH_SIZE = 29
+BATCH_SIZE = 30
 
-SGD_ITERATIONS = 10
+SGD_ITERATIONS = 1
 
 LAMBDA_LR = 10
 
 SIGMA = 10
 
-GAMMA0 = 0.1
+GAMMA0 = 0.5
 
 USE_SPARSE_F = True
 
 USE_SKIP_DICT = True
 
-USE_LOAD_W = False
+USE_LOAD_W = True
 
 LOAD_W_PATH = 'wsparse29-10-1000.pkl'
 
@@ -74,7 +74,7 @@ def prepare_test(skip_dict, weights_ibm):
     return pp
 
 
-def main(parse=False, featurise=True, sgd=True, save_w=True, validate=True, test=True):
+def main(parse=False, featurise=True, sgd=True, save_w=True, validate=True, test=False):
     chinese, english = read_data('data/training.zh-en')
     skip_dict = skip_bigrams(chinese)
     mn, mx = DATA_SET_INDEX * (len(chinese) // PARTITION), (DATA_SET_INDEX + 1) * (len(chinese) // PARTITION)
@@ -103,7 +103,6 @@ def main(parse=False, featurise=True, sgd=True, save_w=True, validate=True, test
     count = 0
     g_batch = defaultdict(float)
     count_batch = 0
-    best_likelihood = -sys.maxsize
     t = 0
     for iter in range(SGD_ITERATIONS):
         print('STARTING SGD ITERATION', iter + 1)
@@ -142,8 +141,8 @@ def main(parse=False, featurise=True, sgd=True, save_w=True, validate=True, test
                     dx = make_target_side_finite_itg(forest, lexicon)
                     dxy = earley(dx, tgt_fsa, start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('D(x, y)'))
 
-                    if len(dxy) == 0:
-                        continue
+                    # if len(dxy) == 0:
+                    #     continue
 
                     with open(path, 'wb') as f:
                         pickle.dump((dx, dxy), f)
@@ -171,38 +170,50 @@ def main(parse=False, featurise=True, sgd=True, save_w=True, validate=True, test
                 print(index)
                 print(gammat)
 
-                if validate:
-                    lls = []
-                    for vdx, vdxy, vfmapx, vfmapxy in val:
-                        ll = likelihood(vdx, vdxy, None, w, None, None, sigma=SIGMA, fmapxn=vfmapx, fmapxy=vfmapxy)
-                        lls.append(ll)
-                    val_ll = sum(lls) / len(lls)
+        if validate:
+            lls = []
+            for vdx, vdxy, vfmapx, vfmapxy in val:
+                ll = likelihood(vdx, vdxy, None, w, None, None, sigma=SIGMA, fmapxn=vfmapx, fmapxy=vfmapxy)
+                lls.append(ll)
+            val_ll = sum(lls) / len(lls)
 
-                    print(val_ll)
-                if test:
-                    predictions = []
-                    for vdx, vfmapx in tst:
-                        p = predict(vdx, vfmapx, w)
-                        predictions.append(p)
-                    if predict:
-                        with open('predictions.txt', 'w') as f:
-                            for p in predictions:
-                                print(p, file=f)
-                        # print(run(['perl',  'multi-bleu.perl', 'reference1.txt',  'predictions.txt']))
-                        p = subprocess.Popen('perl multi-blue.perl reference1.txt < predictions.txt', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-                        for line in p.stdout.readlines():
-                            print(line)
-                        p.wait()
-                if save_w and (not validate or val_ll > best_likelihood):
-                    modifier = 'sparse' if USE_SPARSE_F else ''
-                    modifier += 'skip' if USE_SKIP_DICT else ''
-                    modifier += str(BATCH_SIZE) + '-' + str(LAMBDA_LR) + '-' + str(SIGMA)
-                    print('m:', modifier)
-                    if save_w:
-                        with open('w'+modifier+str(iter)+'.pkl', 'wb') as f:
-                            pickle.dump(dict(w), f)
-                            best_likelihood = val_ll
-                count = 0
+            print(val_ll)
+
+            predictions = []
+            for vdx, _, vfmapx, _ in val:
+                p = predict(vdx, vfmapx, w)
+                predictions.append(p)
+            if predict:
+                with open('predictions.txt', 'w') as f:
+                    for p in predictions:
+                        print(p, file=f)
+                # print(run(['perl',  'multi-bleu.perl', 'reference1.txt',  'predictions.txt']))
+                p = subprocess.Popen('perl multi-blue.perl reference1.txt < predictions.txt', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                for line in p.stdout.readlines():
+                    print(line)
+                p.wait()
+        if test:
+            predictions = []
+            for vdx, vfmapx in tst:
+                p = predict(vdx, vfmapx, w)
+                predictions.append(p)
+            if predict:
+                with open('predictions.txt', 'w') as f:
+                    for p in predictions:
+                        print(p, file=f)
+                # print(run(['perl',  'multi-bleu.perl', 'reference1.txt',  'predictions.txt']))
+                p = subprocess.Popen('perl multi-blue.perl reference1.txt < predictions.txt', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                for line in p.stdout.readlines():
+                    print(line)
+                p.wait()
+        if save_w:
+            modifier = 'sparse' if USE_SPARSE_F else ''
+            modifier += 'skip' if USE_SKIP_DICT else ''
+            modifier += str(BATCH_SIZE) + '-' + str(LAMBDA_LR) + '-' + str(SIGMA) + '-' + str(GAMMA0)
+            print('m:', modifier)
+            if save_w:
+                with open('w'+modifier+str(iter)+'.pkl', 'wb') as f:
+                    pickle.dump(dict(w), f)
 
 
 def test_gradient():

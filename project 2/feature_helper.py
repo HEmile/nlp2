@@ -151,7 +151,7 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
                     if sparse_trans:
                         fmap['trans:%s/%s' % (src_word, tgt_word)] += 1.0
 
-                    # if skip_grams:
+                    if skip_grams:
                         #skip bigrams:
                         try:
                             next_word = get_source_word(src_fsa, s1+1, s2+1)
@@ -482,7 +482,7 @@ def likelihood(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict
     sm = (1/(sigma * sigma)) * sum([-(x * x) for x in weight.values()])
     return Irootxy - Irootxn
 
-def predict(dx: CFG, fmapx, weight: dict, type='sampling') -> str:
+def predict(dx: CFG, fmapx, weight: dict, type='v') -> str:
     weight_f = get_weight_f(fmapx, weight)
     Iplus, Imax, _ = inside_value(dx, weight_f)
     if type == 'sampling':
