@@ -21,21 +21,21 @@ DATA_SET_INDEX = 0
 
 SENTENCE_LENGTH = 10
 
-BATCH_SIZE = 30
+BATCH_SIZE = 1
 
-SGD_ITERATIONS = 1
+SGD_ITERATIONS = 10
 
 LAMBDA_LR = 10
 
-SIGMA = 10
+SIGMA = 0.1
 
-GAMMA0 = 0.5
+GAMMA0 = 0.01
 
-USE_SPARSE_F = True
+USE_SPARSE_F = False
 
-USE_SKIP_DICT = True
+USE_SKIP_DICT = False
 
-USE_LOAD_W = True
+USE_LOAD_W = False
 
 LOAD_W_PATH = 'wsparse29-10-1000.pkl'
 
@@ -74,12 +74,13 @@ def prepare_test(skip_dict, weights_ibm):
     return pp
 
 
-def main(parse=False, featurise=True, sgd=True, save_w=True, validate=True, test=False):
-    chinese, english = read_data('data/training.zh-en')
+def main(parse=False, featurise=True, sgd=False, save_w=False, validate=True, test=False):
+    chinese, english = read_data('data/dev1.zh-en')
     skip_dict = skip_bigrams(chinese)
     mn, mx = DATA_SET_INDEX * (len(chinese) // PARTITION), (DATA_SET_INDEX + 1) * (len(chinese) // PARTITION)
     chinese, english = chinese[mn: mx], english[mn: mx]
     lexicon, weights, ch_vocab, en_vocab, null_alligned = read_lexicon_ibm('lexicon')
+    
     if validate:
         print('preparing validation set')
         val = prepare_val(skip_dict, weights)
@@ -104,6 +105,7 @@ def main(parse=False, featurise=True, sgd=True, save_w=True, validate=True, test
     g_batch = defaultdict(float)
     count_batch = 0
     t = 0
+    gammat = GAMMA0
     for iter in range(SGD_ITERATIONS):
         print('STARTING SGD ITERATION', iter + 1)
         for i in range(len(chinese)):
@@ -177,6 +179,7 @@ def main(parse=False, featurise=True, sgd=True, save_w=True, validate=True, test
                 lls.append(ll)
             val_ll = sum(lls) / len(lls)
 
+            print(w)
             print(val_ll)
 
             predictions = []
@@ -188,7 +191,7 @@ def main(parse=False, featurise=True, sgd=True, save_w=True, validate=True, test
                     for p in predictions:
                         print(p, file=f)
                 # print(run(['perl',  'multi-bleu.perl', 'reference1.txt',  'predictions.txt']))
-                p = subprocess.Popen('perl multi-blue.perl reference1.txt < predictions.txt', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                p = subprocess.Popen('perl multi-blue.perl references2.txt < predictions.txt', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 for line in p.stdout.readlines():
                     print(line)
                 p.wait()

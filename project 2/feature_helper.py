@@ -79,10 +79,10 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
 
         if ls1 == ls2:  # deletion of source left child
            fmap['type:del_lhs'] += 1.0
-           fmap['type:source_length'] += 1.0
+           # fmap['type:source_length'] += 1.0
         if rs1 == rs2:  # deletion of source right child
            fmap['type:del_rhs'] += 1.0
-           fmap['type:source_length'] += 1.0
+           # fmap['type:source_length'] += 1.0
         if ls2 == rs1:  # monotone
             fmap['type:mon'] += 1.0
         if ls1 == rs2:  # inverted
@@ -96,14 +96,14 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
 
         if l_sym == Nonterminal('I') or r_sym == Nonterminal('I'):
             fmap['type:insertion'] += 1.0
-            fmap['type:target_length'] += 1.0
+            # fmap['type:target_length'] += 1.0
         if l_sym == Nonterminal('T') or r_sym == Nonterminal('T'):
             fmap['type:translation'] += 1.0
-            fmap['type:target_length'] += 1.0
-            fmap['type:source_length'] += 1.0
+            # fmap['type:target_length'] += 1.0
+            # fmap['type:source_length'] += 1.0
         if l_sym == Nonterminal('D') or r_sym == Nonterminal('D'):
             fmap['type:deletion'] += 1.0
-            fmap['type:source_length'] += 1.0
+            # fmap['type:source_length'] += 1.0
                 
     else:  # unary
         symbol = edge.rhs[0]
@@ -119,9 +119,7 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
                 fmap['type:deletion'] += 1.0
                 # dense versions (for initial development phase)
                 # TODO: use IBM1 prob
-                if (src_word, eps) in weights_ibm.keys():
-                    ibm_prob = weights_ibm[(src_word, eps)]
-                    fmap['ibm1:del:logprob'] += ibm_prob
+                fmap['ibm1:del:logprob'] += weights_ibm[(src_word, eps)]
                 # sparse version
                 if sparse_del:
                     fmap['del:%s' % src_word] += 1.0
@@ -132,9 +130,7 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
                     
                     # dense version
                     # TODO: use IBM1 prob
-                    if (eps, tgt_word) in weights_ibm.keys():
-                        ibm_prob = weights_ibm[(eps, tgt_word)]
-                        fmap['ibm1:ins:logprob'] += ibm_prob
+                    fmap['ibm1:ins:logprob'] += weights_ibm[(eps, tgt_word)]
                     # sparse version
                     if sparse_ins:
                         fmap['ins:%s' % tgt_word] += 1.0
@@ -143,9 +139,7 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
                     fmap['type:translation'] += 1.0
                     # dense version
                     # TODO: use IBM1 prob
-                    if (src_word, tgt_word) in weights_ibm.keys():
-                        ibm_prob = weights_ibm[(src_word, tgt_word)]
-                        fmap['ibm1:x2y:logprob'] += ibm_prob
+                    fmap['ibm1:x2y:logprob'] += weights_ibm[(src_word, tgt_word)]
                     #ff['ibm1:y2x:logprob'] += 
                     # sparse version                    
                     if sparse_trans:
@@ -165,11 +159,13 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
                         except AssertionError:
                             pass
 
-        elif symbol.obj()[0] == Nonterminal('D'):
+        elif symbol.root().obj()[0] == 'D' and len(symbol.root().obj()) == 1:
             fmap['type:deletion'] += 1.0
-            fmap['type:source_length'] += 1.0
-        elif symbol.obj()[0] == Nonterminal('T'):
+            # fmap['type:source_length'] += 1.0
+        elif symbol.root().obj()[0] == 'T':
             fmap['type:translation'] += 1.0
+            # fmap['type:source_length'] += 1.0
+            # fmap['type:target_length'] += 1.0
         else:  # S -> X
             if edge.lhs == Nonterminal('D(x)') or Nonterminal('D(x, y)'):
                 # here lhs is the root of the intersected forest: S' 
