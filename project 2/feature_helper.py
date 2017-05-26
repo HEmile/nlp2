@@ -96,10 +96,10 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
         if l_sym == Nonterminal('T') or r_sym == Nonterminal('T'):
             fmap['type:translation'] += 1.0
             fmap['type:target_length'] += 1.0
-            fmap['type:source_length'] += 1.0                
-        #if l_sym == Nonterminal('D') or r_sym == Nonterminal('D'):
-        #   fmap['type:deletion'] += 0.0
-        #   fmap['type:source_length'] += 1.0
+            fmap['type:source_length'] += 1.0
+        if l_sym == Nonterminal('D') or r_sym == Nonterminal('D'):
+            fmap['type:deletion'] += 1.0
+            fmap['type:source_length'] += 1.0
     else:  # unary
         symbol = edge.rhs[0]
         if symbol.is_terminal():  # terminal rule
@@ -150,7 +150,7 @@ def simple_features(edge: Rule, src_fsa: FSA, weights_ibm, skip_dict, use_bispan
                         #skip bigrams:
                         fmap['skip:%s' % src_word] = skip_dict[src_word]
         elif symbol.obj()[0] == Nonterminal('D'):
-            fmap['type:deletion'] += 5.0
+            fmap['type:deletion'] += 1.0
             fmap['type:source_length'] += 1.0
         elif symbol.obj()[0] == Nonterminal('T'):
             fmap['type:translation'] += 1.0
@@ -239,7 +239,7 @@ def toposort(cfg: CFG):
 # This feature vector is created for each edge before this.
 def inside_value(cfg: CFG, fweight):
     std = toposort(cfg)
-    Iplus = defaultdict(float)
+    Iplus = {} #defaultdict(float)
     Imax = {}
     for v in std:
         rules = cfg.get(v)
@@ -259,6 +259,23 @@ def inside_value(cfg: CFG, fweight):
             Iplus[v] = math.log(s)
             Imax[v] = mx
     return Iplus, Imax, Iplus[std[-1]]
+
+def derivations(cfg: CFG):
+    std = toposort(cfg)
+    Iplus = defaultdict(float)
+    for v in std:
+        rules = cfg.get(v)
+        if not rules:
+            Iplus[v] = 1
+        else:
+            s = 0
+            for rule in rules:
+                prod = 1  # fweight(rule)
+                for symbol in rule.rhs:
+                    prod *= Iplus[symbol]
+                s += prod
+            Iplus[v] = s
+    return Iplus[std[-1]]
 
 def inside_value_antilog(cfg: CFG, fweight):
     std = toposort(cfg)
@@ -369,13 +386,12 @@ def viterbi(Imax, dxn, wmap, edge_features):
                     argmax1 = r
                     mx1 = mx2
             for v in reversed(argmax1.rhs):  # Ensure leftmost derivation
-                
                 if not v.is_terminal():
                     queue.append(v)
                 else:
                     if v.obj()[2]-v.obj()[1] > 0:
                         yield v.obj()[0].obj()
-    return ' '.join(iternew(u))
+    return ' '.join(filter(lambda x: x != '-EPS-', iternew(u)))
 
 def sampling(Iplus, dxn, wmap, edge_features):
     fweight = get_weight_f(edge_features, wmap)
@@ -408,34 +424,25 @@ def sampling(Iplus, dxn, wmap, edge_features):
                 else:
                     if v.obj()[2]-v.obj()[1] > 0:
                         yield v.obj()[0].obj()
-    return ' '.join(iternew(u))
+    return ' '.join(filter(lambda x: x != '-EPS-', iternew(u)))
 
 
 def gradient(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict, skip_dict, index,
-             get_features=False, sigma=0.0001, sparse=False, predict=False,
+             get_features=False, sigma=0.0001, sparse=False,
              fmapxn=None, fmapxy=None) -> dict:
     if not fmapxn:
         fmapxn = featurize_edges(dxn, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=False)
     if not fmapxy:
         fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=False, use_bispans=True)
-    # with open('features/' + str(index) + '.pkl', 'wb') as f:
-    #     pickle.dump((fmapxn, fmapxy), f)
-    expfxn, Iplus, Imax, totxn = expected_features(dxn, fmapxn, weight)
 
-    if predict:
-        print(viterbi(Imax, dxn, weight, fmapxn))
-        print('---')
-        print(sampling(Iplus, dxn, weight, fmapxn))
+    expfxn, Imax, totxn = expected_features(dxn, fmapxn, weight)
 
     expfxy, Imax2, totxy = expected_features(dxy, fmapxy, weight)
-    
-    #if predict:
-    #    print(viterbi(Imax2, dxy, weight, fmapxy))
 
     gd = defaultdict(float)
     features = set(expfxn.keys())
     features.union(expfxy.keys())
-    
+
     for f in features:
         gd[f] = expfxy[f] - expfxn[f] - weight[f] / (sigma * sigma)
 
@@ -450,12 +457,20 @@ def likelihood(dxn: CFG, dxy: CFG, src_fsa: FSA, weight: dict, weights_ibm: dict
     if not fmapxy:
         fmapxy = featurize_edges(dxy, src_fsa, weights_ibm, skip_dict, sparse_del=sparse, sparse_trans=sparse, sparse_ins=sparse, use_skip_dict=False, use_bispans=True)
     weight_f = get_weight_f(fmapxn, weight)
-    _, _, Irootxn = inside_value(dxn, weight_f)
+    Iplusxn, Imax, Irootxn = inside_value(dxn, weight_f)
     weight_f = get_weight_f(fmapxy, weight)
-    _, _, Irootxy = inside_value(dxy, weight_f)
+    Irootxy = 0
+    if dxy:
+        Iplusxy, _, Irootxy = inside_value(dxy, weight_f)
 
     regres = 0
     for k, v in weight.items():
         regres += v * v
     sm = (1/(sigma * sigma)) * sum([-(x * x) for x in weight.values()])
-    return Irootxy - Irootxn + sm
+    return Irootxy - Irootxn
+
+
+def predict(dx: CFG, fmapx, weight: dict) -> str:
+    weight_f = get_weight_f(fmapx, weight)
+    Iplus, Imax, _ = inside_value(dx, weight_f)
+    return sampling(Iplus, dx, weight, fmapx)

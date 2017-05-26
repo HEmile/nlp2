@@ -3,13 +3,14 @@ from helper import *
 from earley import *
 from libitg import *
 from collections import defaultdict
-from feature_helper import gradient, skip_bigrams, featurize_edges, likelihood
+from feature_helper import gradient, skip_bigrams, featurize_edges, likelihood, predict
 import pickle
 import os
 import matplotlib.pyplot as plot
 import numpy as np
 import math
 import random
+import subprocess
 
 
 LIMIT_TRANS_LENGTH = 3
@@ -26,13 +27,13 @@ SGD_ITERATIONS = 10
 
 LAMBDA_LR = 10
 
-SIGMA = 100
+SIGMA = 10
 
 GAMMA0 = 0.1
 
 USE_SPARSE_F = True
 
-USE_LOAD_W = True
+USE_LOAD_W = False
 
 LOAD_W_PATH = 'wsparse29-10-1000.pkl'
 
@@ -54,19 +55,39 @@ def prepare_val(skip_dict, weights_ibm):
         pp.append((dx, dxy, fmapx, fmapxy))
     return pp
 
-def main(parse=False, featurise=True, predict=True, sgd=True, save_w=False):
+
+def prepare_test(skip_dict, weights_ibm):
+    chi_val, eng_val = read_data('data/dev2.zh-en')
+    pp = []
+    for i in range(len(chi_val)):
+        path = 'parses/test' + str(i) + '.pkl'
+        with open(path, 'rb') as f:
+            (dx, _) = pickle.load(f)
+        src_fsa = make_fsa(chi_val[i])
+        fmapx = featurize_edges(dx, src_fsa, weights_ibm, skip_dict, sparse_del=USE_SPARSE_F, sparse_trans=USE_SPARSE_F,
+                                sparse_ins=USE_SPARSE_F, use_skip_dict=False)
+        pp.append((dx, fmapx))
+    return pp
+
+
+def main(parse=False, featurise=True, sgd=True, save_w=False, validate=True, test=True):
     chinese, english = read_data('data/training.zh-en')
     skip_dict = skip_bigrams(chinese)
     mn, mx = DATA_SET_INDEX * (len(chinese) // PARTITION), (DATA_SET_INDEX + 1) * (len(chinese) // PARTITION)
     chinese, english = chinese[mn: mx], english[mn: mx]
     lexicon, weights, ch_vocab, en_vocab, null_alligned = read_lexicon_ibm('lexicon')
-    val = prepare_val(skip_dict, weights)
+    if validate:
+        print('preparing validation set')
+        val = prepare_val(skip_dict, weights)
+    if test:
+        print('preparing test set')
+        tst = prepare_test(skip_dict, weights)
 
     if USE_LOAD_W:
         with open(LOAD_W_PATH, 'rb') as f:
-            w = pickle.load(f)
+            w = defaultdict(float, pickle.load(f))
     else:
-        w = defaultdict(float)
+        w = defaultdict(lambda: 2*(random.random() - 0.5))
 
     if not os.path.exists('parses'):
         os.makedirs('parses')
@@ -106,21 +127,22 @@ def main(parse=False, featurise=True, predict=True, sgd=True, save_w=False):
             tgt_fsa = make_fsa(en_src)
 
             if parse:
-                print(index)
-                lexicon['-EPS-'] = set(null_alligned)
-                for c in chi_spl:  # Belangrijk voor report: Deze toevoegen zorgt ervoor dat heel veel parset
-                    lexicon['-EPS-'] = lexicon['-EPS-'].union([lexicon[c][0]])
+                if not os.path.exists(path):
+                    print(index)
+                    lexicon['-EPS-'] = set(null_alligned)
+                    for c in chi_spl:  # Belangrijk voor report: Deze toevoegen zorgt ervoor dat heel veel parset
+                        lexicon['-EPS-'] = lexicon['-EPS-'].union([lexicon[c][0]])
 
-                src_cfg = make_source_side_finite_itg(lexicon)
-                forest = earley(src_cfg, src_fsa, start_symbol=Nonterminal('S'), sprime_symbol=Nonterminal("D(x)"))
-                dx = make_target_side_finite_itg(forest, lexicon)
-                dxy = earley(dx, tgt_fsa, start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('D(x, y)'))
+                    src_cfg = make_source_side_finite_itg(lexicon)
+                    forest = earley(src_cfg, src_fsa, start_symbol=Nonterminal('S'), sprime_symbol=Nonterminal("D(x)"))
+                    dx = make_target_side_finite_itg(forest, lexicon)
+                    dxy = earley(dx, tgt_fsa, start_symbol=Nonterminal("D(x)"), sprime_symbol=Nonterminal('D(x, y)'))
 
-                if len(dxy) == 0:
-                    continue
+                    if len(dxy) == 0:
+                        continue
 
-                with open(path, 'wb') as f:
-                    pickle.dump((dx, dxy), f)
+                    with open(path, 'wb') as f:
+                        pickle.dump((dx, dxy), f)
             else:
                 if os.path.exists(path):
                     with open(path, 'rb') as f:
@@ -128,12 +150,10 @@ def main(parse=False, featurise=True, predict=True, sgd=True, save_w=False):
                 else:
                     continue
 
-            if predict:
-                print(en_src)
             if sgd:
                 count += 1
                 count_batch += 1
-                dw, likel = gradient(dx, dxy, src_fsa, w, weights, skip_dict, index, featurise, SIGMA, USE_SPARSE_F, predict)
+                dw, likel = gradient(dx, dxy, src_fsa, w, weights, skip_dict, index, featurise, SIGMA, USE_SPARSE_F)
                 if dw:
                     for k, dwk in dw.items():
                         g_batch[k] += dwk
@@ -143,18 +163,33 @@ def main(parse=False, featurise=True, predict=True, sgd=True, save_w=False):
                     for k, dwk in g_batch.items():
                         w[k] += gammat * dwk / BATCH_SIZE
                     g_batch = defaultdict(float)
-                if count % 100 == 0:
+                if count % 200 == 0:
                     print(index)
-                    print(gammat)
+                    print(1) # gammat
 
-                    lls = []
-                    for vdx, vdxy, vfmapx, vfmapxy in val:
-                        ll = likelihood(vdx, vdxy, None, w, None, None, sigma=SIGMA, fmapxn=vfmapx, fmapxy=vfmapxy)
-                        lls.append(ll)
-                    val_ll = sum(lls) / len(lls)
+                    if validate:
+                        lls = []
+                        for vdx, vdxy, vfmapx, vfmapxy in val:
+                            ll = likelihood(vdx, vdxy, None, w, None, None, sigma=SIGMA, fmapxn=vfmapx, fmapxy=vfmapxy)
+                            lls.append(ll)
+                        val_ll = sum(lls) / len(lls)
 
-                    print(val_ll)
-                    if val_ll > best_likelihood:
+                        print(val_ll)
+                    if test:
+                        predictions = []
+                        for vdx, vfmapx in tst:
+                            p = predict(vdx, vfmapx, w)
+                            predictions.append(p)
+                        if predict:
+                            with open('predictions.txt', 'w') as f:
+                                for p in predictions:
+                                    print(p, file=f)
+                            # print(run(['perl',  'multi-bleu.perl', 'reference1.txt',  'predictions.txt']))
+                            p = subprocess.Popen('perl multi-blue.perl reference1.txt < predictions.txt', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                            for line in p.stdout.readlines():
+                                print(line)
+                            p.wait()
+                    if not validate or val_ll > best_likelihood:
                         modifier = 'sparse' if USE_SPARSE_F else ''
                         modifier += str(BATCH_SIZE) + '-' + str(LAMBDA_LR) + '-' + str(SIGMA)
                         print('m:', modifier)
