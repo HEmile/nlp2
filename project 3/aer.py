@@ -5,6 +5,7 @@ Check the test function below for an example of how to use these helper function
 For test results, please use the official AER perl script.
 """
 
+
 def read_naacl_alignments(path):
     """
     Read NAACL-formatted alignment files.
@@ -23,7 +24,8 @@ def read_naacl_alignments(path):
             sure = True  # by default we assumed Sure links
             prob = 1.0  # by default we assume prob 1.0
             if len(fields) < 3:
-                raise ValueError('Missing required fields in line %d: %s' % (i, line.strip()))
+                raise ValueError(
+                    'Missing required fields in line %d: %s' % (i, line.strip()))
             snt_id, x, y = int(fields[0]), int(fields[1]), int(fields[2])
             if len(fields) == 5:
                 sure = fields[3] == 'S'
@@ -83,8 +85,9 @@ def test(path):
     # 1. Read in gold alignments
     gold_sets = read_naacl_alignments(path)
 
-    # 2. Here you would have the predictions of your own algorithm, 
-    #  for the sake of the illustration, I will cheat and make some predictions by corrupting 50% of sure gold alignments
+    # 2. Here you would have the predictions of your own algorithm,
+    # for the sake of the illustration, I will cheat and make some predictions
+    # by corrupting 50% of sure gold alignments
     predictions = []
     for s, p in gold_sets:
         links = set()
@@ -95,9 +98,9 @@ def test(path):
 
     # 3. Compute AER
 
-    # first we get an object that manages sufficient statistics 
+    # first we get an object that manages sufficient statistics
     metric = AERSufficientStatistics()
-    # then we iterate over the corpus 
+    # then we iterate over the corpus
     for gold, pred in zip(gold_sets, predictions):
         metric.update(sure=gold[0], probable=gold[1], predicted=pred)
     # AER
@@ -106,4 +109,3 @@ def test(path):
 
 if __name__ == '__main__':
     test('validation/dev.wa.nonullalign')
-
