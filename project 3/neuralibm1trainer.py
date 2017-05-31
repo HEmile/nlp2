@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 import random
 from pprint import pprint
+import os
 from utils import iterate_minibatches, prepare_data, smart_reader, bitext_reader
 
 
@@ -134,5 +135,5 @@ class NeuralIBM1Trainer:
                 val_aer, val_acc))
 
             # save parameters
-            save_path = self.model.save(self.session, path="model.ckpt")
+            save_path = self.model.save(self.session, path=os.path.join(os.getcwd(), "model.ckpt"))
             print("Model saved in file: %s" % save_path)
