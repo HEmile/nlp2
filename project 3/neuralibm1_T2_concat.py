@@ -87,6 +87,7 @@ class NeuralIBM1Model_T2:
         x_embedded = tf.nn.embedding_lookup(x_embeddings, self.x)
         
         y_embedded = tf.nn.embedding_lookup(y_embeddings, self.y)
+    
 
         # 2. Now we define the generative model P(Y | X=x)
 
@@ -94,6 +95,13 @@ class NeuralIBM1Model_T2:
         batch_size = tf.shape(self.x)[0]
         longest_x = tf.shape(self.x)[1]  # longest M
         longest_y = tf.shape(self.y)[1]  # longest N
+        
+        prev_y = tf.slice(y_embedded, [0,0,0], [self.batch_size, longest_y - 1, self.emb_dim])
+        
+        var = tf.Variable(tf.ones([self.batch_size, 1 , self.emb_dim], tf.int32))
+        var = tf.cast(var, tf.float32)
+        
+        prev_y = tf.concat([var, prev_y], 1) # Shape: [B, N, dim]
 
         # It's also useful to have masks that indicate what
         # values of our batch we should ignore.
@@ -138,7 +146,6 @@ class NeuralIBM1Model_T2:
         # 2.b P(Y | X, A) = P(Y | X_A)
 
         ### x_embedded concatenate met y_embedded - check if 0 is correct
-        x_y_concat = tf.concat([x_embedded, y_embedded], 0)
 
         # First we make the input to the MLP 2-D.
         # Every output row will be of size Vy, and after a softmax
@@ -147,8 +154,7 @@ class NeuralIBM1Model_T2:
             x_y_concat, [batch_size * longest_x, self.emb_dim])
         
         # Here we apply the MLP to our input.
-        h = tf.matmul(mlp_input, self.mlp_W_) + \
-            self.mlp_b_  # affine transformation
+        h = tf.matmul(mlp_input, self.mlp_W_) + self.mlp_b_  # affine transformation
         h = tf.tanh(h)                                       # non-linearity
         # affine transformation [B * M, Vy]
         h = tf.matmul(h, self.mlp_W) + self.mlp_b
@@ -161,7 +167,7 @@ class NeuralIBM1Model_T2:
         # Now we perform a softmax which operates on a per-row basis.
         py_xa = tf.nn.softmax(h)
         py_xa = tf.reshape(
-            py_xa, [batch_size, longest_x, self.y_vocabulary_size])
+            py_xa, [batch_size, longest_x + longest_y, self.y_vocabulary_size])
 
         # 2.c Marginalise alignments: \sum_a P(a|x) P(Y|x,a)
 
