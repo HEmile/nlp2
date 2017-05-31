@@ -146,6 +146,7 @@ class NeuralIBM1Model_T2:
         # 2.b P(Y | X, A) = P(Y | X_A)
 
         ### x_embedded concatenate met y_embedded - check if 0 is correct
+        x_y_concat = tf.concat([x_embedded, prev_y], 1)
 
         # First we make the input to the MLP 2-D.
         # Every output row will be of size Vy, and after a softmax
