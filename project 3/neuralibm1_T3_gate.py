@@ -11,7 +11,7 @@ except:  # for TF 1.0
     from tensorflow.contrib.layers import xavier_initializer as glorot_uniform
 
 
-class NeuralIBM1Model_T2:
+class NeuralIBM1Model_T3:
     """Our Neural IBM1 model."""
 
     def __init__(self, batch_size=8,
@@ -40,18 +40,24 @@ class NeuralIBM1Model_T2:
         # "None" means the batches may have a variable maximum length.
         self.x = tf.placeholder(tf.int64, shape=[None, None])
         self.y = tf.placeholder(tf.int64, shape=[None, None])
-        self.conc_x = tf.placeholder(tf.int64, shape=[None, None])
-        self.conc_y = tf.placeholder(tf.int64, shape=[None, None])
 
     def _create_weights(self):
         """Create weights for the model."""
         with tf.variable_scope("MLP") as scope:
-            self.mlp_W_ = tf.get_variable(
-                name="W_", initializer=glorot_uniform(),
-                shape=[2 * self.emb_dim, self.mlp_dim])
+            self.mlp_Wx_ = tf.get_variable(
+                name="Wx_", initializer=glorot_uniform(),
+                shape=[self.emb_dim, self.mlp_dim])
 
-            self.mlp_b_ = tf.get_variable(
-                name="b_", initializer=tf.zeros_initializer(),
+            self.mlp_bx_ = tf.get_variable(
+                name="bx_", initializer=tf.zeros_initializer(),
+                shape=[self.mlp_dim])
+
+            self.mlp_Wy_ = tf.get_variable(
+                name="Wy_", initializer=glorot_uniform(),
+                shape=[self.emb_dim, self.mlp_dim])
+
+            self.mlp_by_ = tf.get_variable(
+                name="by_", initializer=tf.zeros_initializer(),
                 shape=[self.mlp_dim])
 
             self.mlp_W = tf.get_variable(
@@ -61,6 +67,10 @@ class NeuralIBM1Model_T2:
             self.mlp_b = tf.get_variable(
                 name="b", initializer=tf.zeros_initializer(),
                 shape=[self.y_vocabulary_size])
+
+            self.mlp_s = tf.get_variable(
+                name="s", initializer=tf.zeros_initializer(),
+                shape=[1])
 
     def save(self, session, path="model.ckpt"):
         """Saves the model."""
@@ -75,7 +85,8 @@ class NeuralIBM1Model_T2:
         x_embeddings = tf.get_variable(
             name="x_embeddings", initializer=tf.random_uniform_initializer(),
             shape=[self.x_vocabulary_size, self.emb_dim])
-        
+
+        ######ADDED
         y_embeddings = tf.get_variable(
             name="y_embeddings", initializer=tf.random_uniform_initializer(),
             shape=[self.y_vocabulary_size, self.emb_dim])
@@ -85,10 +96,9 @@ class NeuralIBM1Model_T2:
         # This looks up the embedding vector for each word given the word IDs in self.x.
         # Shape: [B, M, emb_dim] where B is batch size, M is (longest) source
         # sentence length.
-        x_embedded = tf.nn.embedding_lookup(x_embeddings, self.conc_x)
-        
-        y_embedded = tf.nn.embedding_lookup(y_embeddings, self.conc_y)
-    
+        x_embedded = tf.nn.embedding_lookup(x_embeddings, self.x)
+
+        y_embedded = tf.nn.embedding_lookup(y_embeddings, self.y)
 
         # 2. Now we define the generative model P(Y | X=x)
 
@@ -97,19 +107,19 @@ class NeuralIBM1Model_T2:
         longest_x = tf.shape(self.x)[1]  # longest M
         longest_y = tf.shape(self.y)[1]  # longest N
 
-        # prev_y = tf.slice(y_embedded, [0,0,0], [self.batch_size, longest_y - 1, self.emb_dim])
-        #
-        # var = tf.Variable(tf.ones([self.batch_size, 1 , self.emb_dim], tf.int32))
-        # var = tf.cast(var, tf.float32)
-        #
-        # prev_y = tf.concat([var, prev_y], 1) # Shape: [B, N, dim]
+        prev_y = tf.slice(y_embedded, [0, 0, 0], [self.batch_size, longest_y - 1, self.emb_dim])
+
+        var = tf.Variable(tf.ones([self.batch_size, 1, self.emb_dim], tf.int32))
+        var = tf.cast(var, tf.float32)
+
+        prev_y = tf.concat([var, prev_y], 1)  # Shape: [B, N, dim]
 
         # It's also useful to have masks that indicate what
         # values of our batch we should ignore.
         # Masks have the same shape as our inputs, and contain
         # 1.0 where there is a value, and 0.0 where there is padding.
-        x_mask = tf.cast(tf.sign(self.conc_x), tf.float32)  # Shape: [B, M N]
-        y_mask = tf.cast(tf.sign(self.y), tf.float32)  # Shape: [B, M N]
+        x_mask = tf.cast(tf.sign(self.x), tf.float32)  # Shape: [B, M]
+        y_mask = tf.cast(tf.sign(self.y), tf.float32)  # Shape: [B, N]
         x_len = tf.reduce_sum(tf.sign(self.x), axis=1)  # Shape: [B]
         y_len = tf.reduce_sum(tf.sign(self.y), axis=1)  # Shape: [B]
 
@@ -118,7 +128,7 @@ class NeuralIBM1Model_T2:
         # This just gives you 1/length_x (already including NULL) per sample.
         # i.e. the lengths are the same for each word y_1 .. y_N.
         lengths = tf.expand_dims(x_len, -1)  # Shape: [B, 1]
-        pa_x = tf.div(x_mask, tf.cast(lengths, tf.float32))  # Shape: [B, M N]
+        pa_x = tf.div(x_mask, tf.cast(lengths, tf.float32))  # Shape: [B, M]
 
         # We now have a matrix with 1/M values.
         # For a batch of 2 setencnes, with lengths 2 and 3:
@@ -146,21 +156,25 @@ class NeuralIBM1Model_T2:
 
         # 2.b P(Y | X, A, YPrev) = P(Y | X_A, YPrev)
 
-        ### x_embedded concatenate met y_embedded - check if 0 is correct
-        x_y_concat = tf.concat([x_embedded, y_embedded], 1)
-
         # First we make the input to the MLP 2-D.
         # Every output row will be of size Vy, and after a softmax
         # will sum to 1.0.
-        mlp_input = tf.reshape(
-            x_y_concat, [batch_size * longest_x * longest_y, 2 * self.emb_dim])
-        
-        # Here we apply the MLP to our input.
-        h = tf.matmul(mlp_input, self.mlp_W_) + self.mlp_b_  # affine transformation
-        h = tf.tanh(h)                                       # non-linearity
-        # affine transformation [B * M, Vy]
-        h = tf.matmul(h, self.mlp_W) + self.mlp_b
+        mlp_input_x = tf.reshape(
+            x_embedded, [batch_size * longest_x, self.emb_dim])
 
+        mlp_input_y = tf.reshape(
+            x_embedded, [batch_size * longest_y, self.emb_dim])
+
+        # Here we apply the MLP to our input.
+        hx = tf.matmul(mlp_input_x, self.mlp_Wx_) + self.mlp_bx_  # affine transformation
+        hx = tf.tanh(hx)                                       # non-linearity
+
+
+        hy = tf.matmul(mlp_input_y, self.mlp_Wy_) + self.mlp_by_  # affine transformation
+        hy = tf.tanh(hy)                                       # non-linearity
+
+        h = self.mlp_s * hy + (1-self.mlp_s) * hx
+        # print(h.eval())
         # You could also use TF fully connected to create the MLP.
         # Then you don't have to specify all the weights and biases separately.
         #h = tf.contrib.layers.fully_connected(mlp_input, self.mlp_dim, activation_fn=tf.tanh, trainable=True)
