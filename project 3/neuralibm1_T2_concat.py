@@ -40,8 +40,8 @@ class NeuralIBM1Model_T2:
         # "None" means the batches may have a variable maximum length.
         self.x = tf.placeholder(tf.int64, shape=[None, None])
         self.y = tf.placeholder(tf.int64, shape=[None, None])
-        self.conc_x = tf.placeholder(tf.int64, shape=[None, None])
-        self.conc_y = tf.placeholder(tf.int64, shape=[None, None])
+        self.conc_x = tf.placeholder(tf.int64, shape=[None, None, None])
+        self.conc_y = tf.placeholder(tf.int64, shape=[None, None, None])
 
     def _create_weights(self):
         """Create weights for the model."""
@@ -108,8 +108,8 @@ class NeuralIBM1Model_T2:
         # values of our batch we should ignore.
         # Masks have the same shape as our inputs, and contain
         # 1.0 where there is a value, and 0.0 where there is padding.
-        x_mask = tf.cast(tf.sign(self.conc_x), tf.float32)  # Shape: [B, M N]
-        y_mask = tf.cast(tf.sign(self.y), tf.float32)  # Shape: [B, M N]
+        x_mask = tf.cast(tf.sign(self.x), tf.float32)  # Shape: [B, M]
+        y_mask = tf.cast(tf.sign(self.y), tf.float32)  # Shape: [B, N]
         x_len = tf.reduce_sum(tf.sign(self.x), axis=1)  # Shape: [B]
         y_len = tf.reduce_sum(tf.sign(self.y), axis=1)  # Shape: [B]
 
@@ -118,7 +118,7 @@ class NeuralIBM1Model_T2:
         # This just gives you 1/length_x (already including NULL) per sample.
         # i.e. the lengths are the same for each word y_1 .. y_N.
         lengths = tf.expand_dims(x_len, -1)  # Shape: [B, 1]
-        pa_x = tf.div(x_mask, tf.cast(lengths, tf.float32))  # Shape: [B, M N]
+        pa_x = tf.div(x_mask, tf.cast(lengths, tf.float32))  # Shape: [B, M]
 
         # We now have a matrix with 1/M values.
         # For a batch of 2 setencnes, with lengths 2 and 3:
@@ -137,6 +137,7 @@ class NeuralIBM1Model_T2:
 
         # Now we perform the tiling:
         pa_x = tf.tile(pa_x, [1, longest_y, 1])  # [B, N, M]
+        pa_x = tf.expand_dims(pa_x, 2)  # [B, N, 1, M]
 
         # Result:
         #  pa_x = [[[1/2 1/2   0]
@@ -146,14 +147,13 @@ class NeuralIBM1Model_T2:
 
         # 2.b P(Y | X, A, YPrev) = P(Y | X_A, YPrev)
 
-        ### x_embedded concatenate met y_embedded - check if 0 is correct
-        x_y_concat = tf.concat([x_embedded, y_embedded], 1)
+        x_y_concat = tf.concat([x_embedded, y_embedded], 2)
 
         # First we make the input to the MLP 2-D.
         # Every output row will be of size Vy, and after a softmax
         # will sum to 1.0.
         mlp_input = tf.reshape(
-            x_y_concat, [batch_size * longest_x * longest_y, 2 * self.emb_dim])
+            x_y_concat, [batch_size * longest_y * longest_x, 2 * self.emb_dim])
         
         # Here we apply the MLP to our input.
         h = tf.matmul(mlp_input, self.mlp_W_) + self.mlp_b_  # affine transformation
@@ -169,18 +169,17 @@ class NeuralIBM1Model_T2:
         # Now we perform a softmax which operates on a per-row basis.
         py_xa_yp = tf.nn.softmax(h)
         py_xa_yp = tf.reshape(
-            py_xa_yp, [batch_size, longest_x * longest_y, self.y_vocabulary_size])
+            py_xa_yp, [batch_size, longest_y, longest_x, self.y_vocabulary_size])
 
 
         # 2.c Marginalise alignments: \sum_a P(a|x) P(Y|x,a, yprev)
-
         # Here comes a rather fancy matrix multiplication.
         # Note that tf.matmul is defined to do a matrix multiplication
         # [N, M N] @ [M N, Vy] for each item in the first dimension B.
         # So in the final result we have B matrices [N, Vy], i.e. [B, N, Vy].
         #
         # We matrix-multiply:
-        #   pa_x       Shape: [B, N, *M*] ????
+        #   pa_x       Shape: [B, N, N *M*] ????
         # and
         #   py_xa_yp   Shape: [B, *M* N, Vy]
         # to get
@@ -189,6 +188,9 @@ class NeuralIBM1Model_T2:
         # Note: P(y|x) = prod_j p(y_j|x) = prod_j sum_aj p(aj|m)*p(y_j|x_aj, y_j-1)
         #
         py_x = tf.matmul(pa_x, py_xa_yp)  # Shape: [B, N, Vy]
+        py_x = tf.reshape(
+            py_x, [batch_size, longest_y, self.y_vocabulary_size]
+        )
 
         # This calculates the accuracy, i.e. how many predictions we got right.
         predictions = tf.argmax(py_x, axis=2)
@@ -243,9 +245,9 @@ class NeuralIBM1Model_T2:
             accuracy_correct += acc_correct
             accuracy_total += acc_total
 
-#       if batch_id == 0:
-#         print(batch[0])
-#      s = 0
+            if batch_id == 0:
+                print(batch[0])
+            s = 0
 
             for alignment, N, (sure, probable) in zip(align, y_len, ref_iterator):
                 # the evaluation ignores NULL links, so we discard them
@@ -253,10 +255,10 @@ class NeuralIBM1Model_T2:
                 pred = set((aj, j)
                            for j, aj in enumerate(alignment[:N], 1) if aj > 0)
                 metric.update(sure=sure, probable=probable, predicted=pred)
-         #       print(batch[s])
-         #       print(alignment[:N])
-         #       print(pred)
-         #       s +=1
+                print(batch[s])
+                print(alignment[:N])
+                print(pred)
+                s += 1
 
         accuracy = accuracy_correct / float(accuracy_total)
         return metric.aer(), accuracy

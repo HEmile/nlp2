@@ -87,8 +87,8 @@ class NeuralIBM1Trainer_T2:
                 # Prepare data for easy concat
                 lengthx = max([len(xj) for xj in x])
                 lengthy = max([len(yj) for yj in y])
-                newx = np.zeros([len(batch), lengthx*lengthy], dtype='int64')
-                newy = np.zeros([len(batch), lengthx*lengthy], dtype='int64')
+                newx = np.zeros([len(batch), lengthy, lengthx], dtype='int64')
+                newy = np.zeros([len(batch), lengthy, lengthx], dtype='int64')
                 for i in range(self.batch_size):
                     yy = list(y[i])[:-1]
                     for i in range(len(yy) - 1, -1, -1):
@@ -99,8 +99,8 @@ class NeuralIBM1Trainer_T2:
                     for j in range(len(yy)):
                         for e in range(len(x[i])):
                             if x[i, e] != 0:
-                                newx[i, j * lengthx + e] = x[i, e]
-                                newy[i, j * lengthx + e] = yy[j]
+                                newx[i, j, e] = x[i, e]
+                                newy[i, j, e] = yy[j]
 
                 # If you want to see the data that goes into the model during training
                 # you may uncomment this.
