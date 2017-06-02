@@ -97,13 +97,6 @@ class NeuralIBM1Model_T2:
         longest_x = tf.shape(self.x)[1]  # longest M
         longest_y = tf.shape(self.y)[1]  # longest N
 
-        # prev_y = tf.slice(y_embedded, [0,0,0], [self.batch_size, longest_y - 1, self.emb_dim])
-        #
-        # var = tf.Variable(tf.ones([self.batch_size, 1 , self.emb_dim], tf.int32))
-        # var = tf.cast(var, tf.float32)
-        #
-        # prev_y = tf.concat([var, prev_y], 1) # Shape: [B, N, dim]
-
         # It's also useful to have masks that indicate what
         # values of our batch we should ignore.
         # Masks have the same shape as our inputs, and contain

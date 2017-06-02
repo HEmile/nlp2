@@ -7,8 +7,7 @@ import pickle
 from neuralibm1_T2_concat import NeuralIBM1Model_T2
 from neuralibm1_T3_gate import NeuralIBM1Model_T3
 # check neuralibm1trainer.py for the Trainer code
-from neuralibm1trainer import NeuralIBM1Trainer
-from neuralibm1trainer_T2 import NeuralIBM1Trainer_T2
+from neuralibm1trainer import *
 # the paths to our training and validation data, English side
 train_e_path = 'data/training/hansards.36.2.e.gz'
 train_f_path = 'data/training/hansards.36.2.f.gz'
@@ -54,12 +53,12 @@ with tf.Session() as sess:
   mlp_dim = 128
 
   # our model
-  model = NeuralIBM1Model_T2(
+  model = NeuralIBM1Model_T3(
     x_vocabulary=vocabulary_e, y_vocabulary=vocabulary_f,
     batch_size=batch_size, emb_dim=emb_dim, mlp_dim=mlp_dim, session=sess)
 
   # our trainer
-  trainer = NeuralIBM1Trainer_T2(
+  trainer = NeuralIBM1Trainer_T2_gate(
     model, train_e_path, train_f_path,
     dev_e_path, dev_f_path, dev_wa,
     num_epochs=10, batch_size=batch_size,

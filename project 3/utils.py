@@ -48,14 +48,9 @@ def prepare_data(batch, vocabulary_x, vocabulary_y):
     return x, y
 
 
-def prepare_data_concat(batch, vocabulary_x, vocabulary_y):
+def prepare_data_prev_y(batch, vocabulary_x, vocabulary_y):
     x, y = prepare_data(batch, vocabulary_x, vocabulary_y)
-
-    # Prepare data for easy concat
-    lengthx = max([len(xj) for xj in x])
-    lengthy = max([len(yj) for yj in y])
-    newx = np.zeros([len(batch), lengthy, lengthx], dtype='int64')
-    newy = np.zeros([len(batch), lengthy, lengthx], dtype='int64')
+    prevy = np.copy(y)
     for i in range(len(batch)):
         yy = list(y[i])[:-1]
         for j in range(len(yy) - 1, -1, -1):
@@ -63,6 +58,19 @@ def prepare_data_concat(batch, vocabulary_x, vocabulary_y):
                 yy[j] = 0
                 break
         yy.insert(0, 2)  # Insert <S> token, which is id 2
+        prevy[i] = yy
+    return x, y, prevy
+
+def prepare_data_concat(batch, vocabulary_x, vocabulary_y):
+    x, y, prevy = prepare_data_prev_y(batch, vocabulary_x, vocabulary_y)
+
+    # Prepare data for easy concat
+    lengthx = max([len(xj) for xj in x])
+    lengthy = max([len(yj) for yj in y])
+    newx = np.zeros([len(batch), lengthy, lengthx], dtype='int64')
+    newy = np.zeros([len(batch), lengthy, lengthx], dtype='int64')
+    for i in range(len(batch)):
+        yy = prevy[i]
         for j in range(len(yy)):
             for e in range(len(x[i])):
                 if x[i, e] != 0:

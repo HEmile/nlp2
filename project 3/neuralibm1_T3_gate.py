@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 from aer import read_naacl_alignments, AERSufficientStatistics
-from utils import iterate_minibatches, prepare_data
+from utils import iterate_minibatches, prepare_data_prev_y
 
 # for TF 1.1
 import tensorflow
@@ -40,6 +40,7 @@ class NeuralIBM1Model_T3:
         # "None" means the batches may have a variable maximum length.
         self.x = tf.placeholder(tf.int64, shape=[None, None])
         self.y = tf.placeholder(tf.int64, shape=[None, None])
+        self.prev_y = tf.placeholder(tf.int64, shape=[None, None])
 
     def _create_weights(self):
         """Create weights for the model."""
@@ -100,19 +101,14 @@ class NeuralIBM1Model_T3:
 
         y_embedded = tf.nn.embedding_lookup(y_embeddings, self.y)
 
+        y_embed_prev = tf.nn.embedding_lookup(y_embeddings, self.prev_y)
+
         # 2. Now we define the generative model P(Y | X=x)
 
         # first we need to know some sizes from the current input data
         batch_size = tf.shape(self.x)[0]
         longest_x = tf.shape(self.x)[1]  # longest M
         longest_y = tf.shape(self.y)[1]  # longest N
-
-        prev_y = tf.slice(y_embedded, [0, 0, 0], [self.batch_size, longest_y - 1, self.emb_dim])
-
-        var = tf.Variable(tf.ones([self.batch_size, 1, self.emb_dim], tf.int32))
-        var = tf.cast(var, tf.float32)
-
-        prev_y = tf.concat([var, prev_y], 1)  # Shape: [B, N, dim]
 
         # It's also useful to have masks that indicate what
         # values of our batch we should ignore.
@@ -147,6 +143,7 @@ class NeuralIBM1Model_T3:
 
         # Now we perform the tiling:
         pa_x = tf.tile(pa_x, [1, longest_y, 1])  # [B, N, M]
+        pa_x = tf.expand_dims(pa_x, 2)  # [B, N, 1, M]
 
         # Result:
         #  pa_x = [[[1/2 1/2   0]
@@ -163,18 +160,26 @@ class NeuralIBM1Model_T3:
             x_embedded, [batch_size * longest_x, self.emb_dim])
 
         mlp_input_y = tf.reshape(
-            x_embedded, [batch_size * longest_y, self.emb_dim])
+            y_embed_prev, [batch_size * longest_y, self.emb_dim])
 
-        # Here we apply the MLP to our input.
         hx = tf.matmul(mlp_input_x, self.mlp_Wx_) + self.mlp_bx_  # affine transformation
-        hx = tf.tanh(hx)                                       # non-linearity
-
+        hx = tf.tanh(hx) * (1-self.mlp_s)                         # non-linearity
 
         hy = tf.matmul(mlp_input_y, self.mlp_Wy_) + self.mlp_by_  # affine transformation
-        hy = tf.tanh(hy)                                       # non-linearity
+        hy = tf.tanh(hy) * self.mlp_s                             # non-linearity
 
-        h = self.mlp_s * hy + (1-self.mlp_s) * hx
-        # print(h.eval())
+        hx = tf.reshape(
+            hx, [batch_size, 1, longest_x, self.mlp_dim])
+        hy = tf.reshape(
+            hy, [batch_size, longest_y, 1, self.mlp_dim])
+
+        h = tf.add(hx, hy)
+        h = tf.reshape(h, [batch_size * longest_y * longest_x, self.mlp_dim])
+
+        h = tf.matmul(h, self.mlp_W) + self.mlp_b
+
+        #TODO: Correct value of s using function
+
         # You could also use TF fully connected to create the MLP.
         # Then you don't have to specify all the weights and biases separately.
         #h = tf.contrib.layers.fully_connected(mlp_input, self.mlp_dim, activation_fn=tf.tanh, trainable=True)
@@ -183,7 +188,7 @@ class NeuralIBM1Model_T3:
         # Now we perform a softmax which operates on a per-row basis.
         py_xa_yp = tf.nn.softmax(h)
         py_xa_yp = tf.reshape(
-            py_xa_yp, [batch_size, longest_x * longest_y, self.y_vocabulary_size])
+            py_xa_yp, [batch_size, longest_y, longest_x, self.y_vocabulary_size])
 
 
         # 2.c Marginalise alignments: \sum_a P(a|x) P(Y|x,a, yprev)
@@ -202,7 +207,10 @@ class NeuralIBM1Model_T3:
         #
         # Note: P(y|x) = prod_j p(y_j|x) = prod_j sum_aj p(aj|m)*p(y_j|x_aj, y_j-1)
         #
-        py_x = tf.matmul(pa_x, py_xa_yp)  # Shape: [B, N, Vy]
+        py_x = tf.matmul(pa_x, py_xa_yp)  # Shape: [B, 1, N, Vy]
+        py_x = tf.reshape(
+            py_x, [batch_size, longest_y, self.y_vocabulary_size]
+        )
 
         # This calculates the accuracy, i.e. how many predictions we got right.
         predictions = tf.argmax(py_x, axis=2)
@@ -250,10 +258,10 @@ class NeuralIBM1Model_T3:
         accuracy_total = 0
 
         for batch_id, batch in enumerate(iterate_minibatches(data, batch_size=batch_size)):
-            x, y = prepare_data(batch, self.x_vocabulary, self.y_vocabulary)
+            x, y, prev_y = prepare_data_prev_y(batch, self.x_vocabulary, self.y_vocabulary)
             y_len = np.sum(np.sign(y), axis=1, dtype="int64")
 
-            align, prob, acc_correct, acc_total = self.get_viterbi(x, y)
+            align, prob, acc_correct, acc_total = self.get_viterbi(x, y, prev_y)
             accuracy_correct += acc_correct
             accuracy_total += acc_total
 
@@ -275,12 +283,13 @@ class NeuralIBM1Model_T3:
         accuracy = accuracy_correct / float(accuracy_total)
         return metric.aer(), accuracy
 
-    def get_viterbi(self, x, y):
+    def get_viterbi(self, x, y, prev_y):
         """Returns the Viterbi alignment for (x, y)"""
 
         feed_dict = {
             self.x: x,  # English
-            self.y: y   # French
+            self.y: y,   # French
+            self.prev_y: prev_y
         }
 
         # run model on this input
@@ -298,7 +307,7 @@ class NeuralIBM1Model_T3:
                 if french_word == 0:  # Padding
                     break
 
-                probs = py_xa[b, :, y[b, j]]
+                probs = py_xa[b, j, :, y[b, j]]
                 a_j = probs.argmax()
                 p_j = probs[a_j]
 

@@ -3,7 +3,7 @@ import tensorflow as tf
 import random
 from pprint import pprint
 import os
-from utils import iterate_minibatches, prepare_data, smart_reader, bitext_reader
+from utils import iterate_minibatches, prepare_data, smart_reader, bitext_reader, prepare_data_concat, prepare_data_prev_y
 
 
 class NeuralIBM1Trainer:
@@ -81,8 +81,6 @@ class NeuralIBM1Trainer:
                 # descent tricks.
                 lr_t = self.lr * (1 + self.lr * self.lr_decay * steps)**-1
 
-                x, y = prepare_data(batch, self.model.x_vocabulary,
-                                    self.model.y_vocabulary)
 
                 # If you want to see the data that goes into the model during training
                 # you may uncomment this.
@@ -93,11 +91,7 @@ class NeuralIBM1Trainer:
                 #    print(" ".join([self.model.y_vocabulary.get_token(t) for t in y[0]]))
 
                 # input to the TF graph
-                feed_dict = {
-                    self.lr_ph: lr_t,
-                    self.model.x: x,
-                    self.model.y: y
-                }
+                feed_dict = self.get_feed_dict(batch, lr_t)
 
                 # things we want TF to return to us from the computation
                 fetches = {
@@ -137,3 +131,50 @@ class NeuralIBM1Trainer:
             # save parameters
             save_path = self.model.save(self.session, path=os.path.join(os.getcwd(), "model.ckpt"))
             print("Model saved in file: %s" % save_path)
+
+
+    def get_feed_dict(self, batch, learning_rate):
+        x, y = prepare_data(batch, self.model.x_vocabulary, self.model.y_vocabulary)
+
+        # If you want to see the data that goes into the model during training
+        # you may uncomment this.
+        # if batch_id % 1000 == 0:
+        #    print(" ".join([str(t) for t in x[0]]))
+        #    print(" ".join([str(t) for t in y[0]]))
+        #    print(" ".join([self.model.x_vocabulary.get_token(t) for t in x[0]]))
+        #    print(" ".join([self.model.y_vocabulary.get_token(t) for t in y[0]]))
+
+        # input to the TF graph
+        return {
+            self.lr_ph: learning_rate,
+            self.model.x: x,
+            self.model.y: y
+        }
+
+class NeuralIBM1Trainer_T2_concat(NeuralIBM1Trainer):
+    def get_feed_dict(self, batch, learning_rate):
+        x, y, newx, newy = prepare_data_concat(batch, self.model.x_vocabulary,
+                                    self.model.y_vocabulary)
+
+        # input to the TF graph
+        return {
+            self.lr_ph: learning_rate,
+            self.model.x: x,
+            self.model.y: y,
+            self.model.conc_x: newx,
+            self.model.conc_y: newy
+        }
+
+
+class NeuralIBM1Trainer_T2_gate(NeuralIBM1Trainer):
+    def get_feed_dict(self, batch, learning_rate):
+        x, y, prev_y = prepare_data_prev_y(batch, self.model.x_vocabulary,
+                                    self.model.y_vocabulary)
+
+        # input to the TF graph
+        return {
+            self.lr_ph: learning_rate,
+            self.model.x: x,
+            self.model.y: y,
+            self.model.prev_y: prev_y
+        }
