@@ -69,8 +69,12 @@ class NeuralIBM1Model_T3:
                 name="b", initializer=tf.zeros_initializer(),
                 shape=[self.y_vocabulary_size])
 
-            self.mlp_s = tf.get_variable(
-                name="s", initializer=tf.zeros_initializer(),
+            self.mlp_Ws = tf.get_variable(
+                name="Ws", initializer=glorot_uniform(),
+                shape=[self.emb_dim, 1])
+
+            self.mlp_bs = tf.get_variable(
+                name="bs", initializer=glorot_uniform(),
                 shape=[1])
 
     def save(self, session, path="model.ckpt"):
@@ -162,17 +166,20 @@ class NeuralIBM1Model_T3:
         mlp_input_y = tf.reshape(
             y_embed_prev, [batch_size * longest_y, self.emb_dim])
 
+        s = tf.sigmoid(tf.matmul(mlp_input_y, self.mlp_Ws) + self.mlp_bs)
+        s = tf.reshape(s, [batch_size, longest_y, 1, 1])
+
         hx = tf.matmul(mlp_input_x, self.mlp_Wx_) + self.mlp_bx_  # affine transformation
-        hx = tf.tanh(hx) * (1-self.mlp_s)                         # non-linearity
 
         hy = tf.matmul(mlp_input_y, self.mlp_Wy_) + self.mlp_by_  # affine transformation
-        hy = tf.tanh(hy) * self.mlp_s                             # non-linearity
 
         hx = tf.reshape(
             hx, [batch_size, 1, longest_x, self.mlp_dim])
         hy = tf.reshape(
             hy, [batch_size, longest_y, 1, self.mlp_dim])
 
+        hx = tf.tanh(hx) * (1-s)                         # non-linearity
+        hy = tf.tanh(hy) * s                             # non-linearity
         h = tf.add(hx, hy)
         h = tf.reshape(h, [batch_size * longest_y * longest_x, self.mlp_dim])
 
