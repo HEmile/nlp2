@@ -1,5 +1,5 @@
 import gzip
-
+import numpy as np
 
 def smart_reader(path, encoding='utf-8', delimiter=' '):
     """Read in a gzipped file and return line by line"""
@@ -47,6 +47,28 @@ def prepare_data(batch, vocabulary_x, vocabulary_y):
         batch_y, add_null=False, add_end_symbol=False)
     return x, y
 
+
+def prepare_data_concat(batch, vocabulary_x, vocabulary_y):
+    x, y = prepare_data(batch, vocabulary_x, vocabulary_y)
+
+    # Prepare data for easy concat
+    lengthx = max([len(xj) for xj in x])
+    lengthy = max([len(yj) for yj in y])
+    newx = np.zeros([len(batch), lengthy, lengthx], dtype='int64')
+    newy = np.zeros([len(batch), lengthy, lengthx], dtype='int64')
+    for i in range(len(batch)):
+        yy = list(y[i])[:-1]
+        for j in range(len(yy) - 1, -1, -1):
+            if yy[j] != 0:
+                yy[j] = 0
+                break
+        yy.insert(0, 2)  # Insert <S> token, which is id 2
+        for j in range(len(yy)):
+            for e in range(len(x[i])):
+                if x[i, e] != 0:
+                    newx[i, j, e] = x[i, e]
+                    newy[i, j, e] = yy[j]
+    return x, y, newx, newy
 
 def prepare_batch_data(batch, vocabulary):
     """Prepare batch of sentences for TensorFlow input."""

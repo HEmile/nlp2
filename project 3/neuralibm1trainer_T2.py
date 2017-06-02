@@ -3,7 +3,7 @@ import tensorflow as tf
 import random
 from pprint import pprint
 import os
-from utils import iterate_minibatches, prepare_data, smart_reader, bitext_reader
+from utils import iterate_minibatches, prepare_data_concat, smart_reader, bitext_reader
 
 
 class NeuralIBM1Trainer_T2:
@@ -81,26 +81,9 @@ class NeuralIBM1Trainer_T2:
                 # descent tricks.
                 lr_t = self.lr * (1 + self.lr * self.lr_decay * steps)**-1
 
-                x, y = prepare_data(batch, self.model.x_vocabulary,
+                x, y, newx, newy = prepare_data_concat(batch, self.model.x_vocabulary,
                                     self.model.y_vocabulary)
 
-                # Prepare data for easy concat
-                lengthx = max([len(xj) for xj in x])
-                lengthy = max([len(yj) for yj in y])
-                newx = np.zeros([len(batch), lengthy, lengthx], dtype='int64')
-                newy = np.zeros([len(batch), lengthy, lengthx], dtype='int64')
-                for i in range(self.batch_size):
-                    yy = list(y[i])[:-1]
-                    for i in range(len(yy) - 1, -1, -1):
-                        if yy[i] != 0:
-                            yy[i] = 0
-                            break
-                    yy.insert(0, 2)  # Insert <S> token, which is id 2
-                    for j in range(len(yy)):
-                        for e in range(len(x[i])):
-                            if x[i, e] != 0:
-                                newx[i, j, e] = x[i, e]
-                                newy[i, j, e] = yy[j]
 
                 # If you want to see the data that goes into the model during training
                 # you may uncomment this.

@@ -1,0 +1,46 @@
+C:\Users\Emile\Anaconda3\python.exe "C:/Users/Emile/Dropbox/Universiteit/nlp2/project 3/main.py"
+English vocabulary size: 1005
+French vocabulary size: 1005
+
+2017-06-02 10:04:02.095520: W c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\platform\cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use SSE instructions, but these are available on your machine and could speed up CPU computations.
+2017-06-02 10:04:02.095780: W c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\platform\cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use SSE2 instructions, but these are available on your machine and could speed up CPU computations.
+2017-06-02 10:04:02.095987: W c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\platform\cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use SSE3 instructions, but these are available on your machine and could speed up CPU computations.
+2017-06-02 10:04:02.096241: W c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\platform\cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use SSE4.1 instructions, but these are available on your machine and could speed up CPU computations.
+2017-06-02 10:04:02.096459: W c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\platform\cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use SSE4.2 instructions, but these are available on your machine and could speed up CPU computations.
+2017-06-02 10:04:02.096678: W c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\platform\cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use AVX instructions, but these are available on your machine and could speed up CPU computations.
+2017-06-02 10:04:02.096940: W c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\platform\cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use AVX2 instructions, but these are available on your machine and could speed up CPU computations.
+2017-06-02 10:04:02.097171: W c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\platform\cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use FMA instructions, but these are available on your machine and could speed up CPU computations.
+2017-06-02 10:04:02.882264: I c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\common_runtime\gpu\gpu_device.cc:887] Found device 0 with properties: 
+name: GeForce GTX 970
+major: 5 minor: 2 memoryClockRate (GHz) 1.253
+pciBusID 0000:01:00.0
+Total memory: 4.00GiB
+Free memory: 3.31GiB
+2017-06-02 10:04:02.882515: I c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\common_runtime\gpu\gpu_device.cc:908] DMA: 0 
+2017-06-02 10:04:02.882668: I c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\common_runtime\gpu\gpu_device.cc:918] 0:   Y 
+2017-06-02 10:04:02.883050: I c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\common_runtime\gpu\gpu_device.cc:977] Creating TensorFlow device (/gpu:0) -> (device: 0, name: GeForce GTX 970, pci bus id: 0000:01:00.0)
+Training with B=128 max_length=30 lr=0.001 lr_decay=0.0
+Initializing variables..
+Training started..
+Shuffling training data
+Iter   100 loss 55.895348 accuracy 0.18 lr 0.001000
+Iter   200 loss 60.997498 accuracy 0.17 lr 0.001000
+Iter   300 loss 50.851936 accuracy 0.21 lr 0.001000
+Iter   400 loss 55.103497 accuracy 0.21 lr 0.001000
+Iter   500 loss 53.963646 accuracy 0.20 lr 0.001000
+Iter   600 loss 47.136993 accuracy 0.24 lr 0.001000
+Iter   700 loss 47.739090 accuracy 0.22 lr 0.001000
+Iter   800 loss 53.000275 accuracy 0.23 lr 0.001000
+Iter   900 loss 43.692402 accuracy 0.23 lr 0.001000
+Iter  1000 loss 46.368256 accuracy 0.24 lr 0.001000
+Iter  1100 loss 48.045475 accuracy 0.21 lr 0.001000
+Iter  1200 loss 40.756569 accuracy 0.25 lr 0.001000
+Iter  1300 loss 47.418839 accuracy 0.22 lr 0.001000
+
+Epoch 1 loss 50.919006 accuracy 0.22 val_aer 0.94 val_acc 0.26
+Model saved in file: C:\Users\Emile\Dropbox\Universiteit\nlp2\project 3\model.ckpt
+Shuffling training data
+Iter   100 loss 46.275116 accuracy 0.24 lr 0.001000
+Iter   200 loss 42.253159 accuracy 0.23 lr 0.001000
+
+Process finished with exit code -1

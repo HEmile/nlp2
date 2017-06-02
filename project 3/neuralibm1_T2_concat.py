@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 from aer import read_naacl_alignments, AERSufficientStatistics
-from utils import iterate_minibatches, prepare_data
+from utils import iterate_minibatches, prepare_data_concat
 
 # for TF 1.1
 import tensorflow
@@ -238,10 +238,10 @@ class NeuralIBM1Model_T2:
         accuracy_total = 0
 
         for batch_id, batch in enumerate(iterate_minibatches(data, batch_size=batch_size)):
-            x, y = prepare_data(batch, self.x_vocabulary, self.y_vocabulary)
+            x, y, newx, newy = prepare_data_concat(batch, self.x_vocabulary, self.y_vocabulary)
             y_len = np.sum(np.sign(y), axis=1, dtype="int64")
 
-            align, prob, acc_correct, acc_total = self.get_viterbi(x, y)
+            align, prob, acc_correct, acc_total = self.get_viterbi(x, y, newx, newy)
             accuracy_correct += acc_correct
             accuracy_total += acc_total
 
@@ -263,12 +263,14 @@ class NeuralIBM1Model_T2:
         accuracy = accuracy_correct / float(accuracy_total)
         return metric.aer(), accuracy
 
-    def get_viterbi(self, x, y):
+    def get_viterbi(self, x, y, conc_x, conc_y):
         """Returns the Viterbi alignment for (x, y)"""
 
         feed_dict = {
             self.x: x,  # English
-            self.y: y   # French
+            self.y: y,  # French
+            self.conc_x: conc_x,
+            self.conc_y: conc_y
         }
 
         # run model on this input
@@ -286,7 +288,7 @@ class NeuralIBM1Model_T2:
                 if french_word == 0:  # Padding
                     break
 
-                probs = py_xa[b, :, y[b, j]]
+                probs = py_xa[b, j, :, y[b, j]]
                 a_j = probs.argmax()
                 p_j = probs[a_j]
 
