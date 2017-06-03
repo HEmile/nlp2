@@ -1,5 +1,6 @@
 import gzip
 import numpy as np
+import tensorflow as tf
 
 def smart_reader(path, encoding='utf-8', delimiter=' '):
     """Read in a gzipped file and return line by line"""
@@ -89,3 +90,8 @@ def filter_len(data, max_length=30):
         if len(x) > max_length:
             continue
         yield x
+
+
+def neural_net(input, W, b, Wh, bh, activation=tf.nn.softmax):
+    h = tf.tanh(tf.matmul(input, Wh) + bh)
+    return activation(tf.matmul(h, W) + b)
