@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 from aer import read_naacl_alignments, AERSufficientStatistics
-from utils import iterate_minibatches, prepare_data
+from utils import iterate_minibatches, prepare_data_prev_y
 
 # for TF 1.1
 import tensorflow
@@ -11,7 +11,7 @@ except:  # for TF 1.0
     from tensorflow.contrib.layers import xavier_initializer as glorot_uniform
 
 
-class NeuralIBM1Model_T2:
+class NeuralIBM1Model_T2_gate:
     """Our Neural IBM1 model."""
 
     def __init__(self, batch_size=8,
@@ -40,16 +40,25 @@ class NeuralIBM1Model_T2:
         # "None" means the batches may have a variable maximum length.
         self.x = tf.placeholder(tf.int64, shape=[None, None])
         self.y = tf.placeholder(tf.int64, shape=[None, None])
+        self.prev_y = tf.placeholder(tf.int64, shape=[None, None])
 
     def _create_weights(self):
         """Create weights for the model."""
         with tf.variable_scope("MLP") as scope:
-            self.mlp_W_ = tf.get_variable(
-                name="W_", initializer=glorot_uniform(),
+            self.mlp_Wx_ = tf.get_variable(
+                name="Wx_", initializer=glorot_uniform(),
                 shape=[self.emb_dim, self.mlp_dim])
 
-            self.mlp_b_ = tf.get_variable(
-                name="b_", initializer=tf.zeros_initializer(),
+            self.mlp_bx_ = tf.get_variable(
+                name="bx_", initializer=tf.zeros_initializer(),
+                shape=[self.mlp_dim])
+
+            self.mlp_Wy_ = tf.get_variable(
+                name="Wy_", initializer=glorot_uniform(),
+                shape=[self.emb_dim, self.mlp_dim])
+
+            self.mlp_by_ = tf.get_variable(
+                name="by_", initializer=tf.zeros_initializer(),
                 shape=[self.mlp_dim])
 
             self.mlp_W = tf.get_variable(
@@ -59,6 +68,14 @@ class NeuralIBM1Model_T2:
             self.mlp_b = tf.get_variable(
                 name="b", initializer=tf.zeros_initializer(),
                 shape=[self.y_vocabulary_size])
+
+            self.mlp_Ws = tf.get_variable(
+                name="Ws", initializer=glorot_uniform(),
+                shape=[self.emb_dim, 1])
+
+            self.mlp_bs = tf.get_variable(
+                name="bs", initializer=glorot_uniform(),
+                shape=[1])
 
     def save(self, session, path="model.ckpt"):
         """Saves the model."""
@@ -73,7 +90,7 @@ class NeuralIBM1Model_T2:
         x_embeddings = tf.get_variable(
             name="x_embeddings", initializer=tf.random_uniform_initializer(),
             shape=[self.x_vocabulary_size, self.emb_dim])
-        
+
         ######ADDED
         y_embeddings = tf.get_variable(
             name="y_embeddings", initializer=tf.random_uniform_initializer(),
@@ -85,8 +102,8 @@ class NeuralIBM1Model_T2:
         # Shape: [B, M, emb_dim] where B is batch size, M is (longest) source
         # sentence length.
         x_embedded = tf.nn.embedding_lookup(x_embeddings, self.x)
-        
-        y_embedded = tf.nn.embedding_lookup(y_embeddings, self.y)
+
+        y_embed_prev = tf.nn.embedding_lookup(y_embeddings, self.prev_y)
 
         # 2. Now we define the generative model P(Y | X=x)
 
@@ -128,6 +145,7 @@ class NeuralIBM1Model_T2:
 
         # Now we perform the tiling:
         pa_x = tf.tile(pa_x, [1, longest_y, 1])  # [B, N, M]
+        pa_x = tf.expand_dims(pa_x, 2)  # [B, N, 1, M]
 
         # Result:
         #  pa_x = [[[1/2 1/2   0]
@@ -135,63 +153,69 @@ class NeuralIBM1Model_T2:
         #           [[1/3 1/3 1/3]
         #           [1/3 1/3 1/3]]]
 
-        # 2.b P(Y | X, A) = P(Y | X_A)
-        
-#TO DO - ADDD PARAMETERS FOR Y
+        # 2.b P(Y | X, A, YPrev) = P(Y | X_A, YPrev)
 
         # First we make the input to the MLP 2-D.
         # Every output row will be of size Vy, and after a softmax
         # will sum to 1.0.
         mlp_input_x = tf.reshape(
             x_embedded, [batch_size * longest_x, self.emb_dim])
-        
-        mlp_input_y = tf.reshape(
-            x_embedded, [batch_size * longest_y, self.emb_dim])
-        
-        # Here we apply the MLP to our input.
-        h_e = tf.matmul(mlp_input_x, self.mlp_W_) + \
-            self.mlp_b_  # affine transformation
-        h_e = tf.tanh(h_e)                                       # non-linearity
-        # affine transformation [B * M, Vy]
-        h_e = tf.matmul(h_e, self.mlp_W) + self.mlp_b
-        
-                # Here we apply the MLP to our input.
-        h_f = tf.matmul(mlp_input_y, self.mlp_W_) + \
-            self.mlp_b_  # affine transformation
-        h_f = tf.tanh(h_f)                                       # non-linearity
-        # affine transformation [B * M, Vy]
-        h_f = tf.matmul(h_f, self.mlp_W) + self.mlp_b
 
-#TODO compute S
-        #r =  s*h_f + (1-s)*h_e
-        
+        mlp_input_y = tf.reshape(
+            y_embed_prev, [batch_size * longest_y, self.emb_dim])
+
+        s = tf.sigmoid(tf.matmul(mlp_input_y, self.mlp_Ws) + self.mlp_bs)
+        s = tf.reshape(s, [batch_size, longest_y, 1, 1])  # [B, N, 1, 1]
+
+        hx = tf.matmul(mlp_input_x, self.mlp_Wx_) + self.mlp_bx_  # affine transformation
+
+        hy = tf.matmul(mlp_input_y, self.mlp_Wy_) + self.mlp_by_  # affine transformation
+
+        hx = tf.reshape(
+            hx, [batch_size, 1, longest_x, self.mlp_dim])  # [B, 1, M, emb]
+        hy = tf.reshape(
+            hy, [batch_size, longest_y, 1, self.mlp_dim])  # [B, N, 1, emb]
+
+        hx = tf.tanh(hx) * (1-s)                         # non-linearity, [B, N, M, emb]
+        hy = tf.tanh(hy) * s                             # non-linearity
+        h = tf.add(hx, hy)
+        h = tf.reshape(h, [batch_size * longest_y * longest_x, self.mlp_dim])
+
+        h = tf.matmul(h, self.mlp_W) + self.mlp_b
+
+        #TODO: Correct value of s using function
+
         # You could also use TF fully connected to create the MLP.
         # Then you don't have to specify all the weights and biases separately.
         #h = tf.contrib.layers.fully_connected(mlp_input, self.mlp_dim, activation_fn=tf.tanh, trainable=True)
         #h = tf.contrib.layers.fully_connected(h, self.y_vocabulary_size, activation_fn=None, trainable=True)
 
         # Now we perform a softmax which operates on a per-row basis.
-        py_xa = tf.nn.softmax(r)
-        py_xa = tf.reshape(
-            py_xa, [batch_size, longest_x, self.y_vocabulary_size])
+        py_xa_yp = tf.nn.softmax(h)
+        py_xa_yp = tf.reshape(
+            py_xa_yp, [batch_size, longest_y, longest_x, self.y_vocabulary_size])
 
-        # 2.c Marginalise alignments: \sum_a P(a|x) P(Y|x,a)
+
+        # 2.c Marginalise alignments: \sum_a P(a|x) P(Y|x,a, yprev)
 
         # Here comes a rather fancy matrix multiplication.
         # Note that tf.matmul is defined to do a matrix multiplication
-        # [N, M] @ [M, Vy] for each item in the first dimension B.
+        # [N, M N] @ [M N, Vy] for each item in the first dimension B.
         # So in the final result we have B matrices [N, Vy], i.e. [B, N, Vy].
         #
         # We matrix-multiply:
-        #   pa_x       Shape: [B, N, *M*]
+        #   pa_x       Shape: [B, N, *M*] ????
         # and
-        #   py_xa      Shape: [B, *M*, Vy]
+        #   py_xa_yp   Shape: [B, *M* N, Vy]
         # to get
         #   py_x  Shape: [B, N, Vy]
         #
-        # Note: P(y|x) = prod_j p(y_j|x) = prod_j sum_aj p(aj|m)p(y_j|x_aj)
+        # Note: P(y|x) = prod_j p(y_j|x) = prod_j sum_aj p(aj|m)*p(y_j|x_aj, y_j-1)
         #
-        py_x = tf.matmul(pa_x, py_xa)  # Shape: [B, N, Vy]
+        py_x = tf.matmul(pa_x, py_xa_yp)  # Shape: [B, 1, N, Vy]
+        py_x = tf.reshape(
+            py_x, [batch_size, longest_y, self.y_vocabulary_size]
+        )
 
         # This calculates the accuracy, i.e. how many predictions we got right.
         predictions = tf.argmax(py_x, axis=2)
@@ -221,7 +245,7 @@ class NeuralIBM1Model_T2:
 
         self.pa_x = pa_x
         self.py_x = py_x
-        self.py_xa = py_xa
+        self.py_xa = py_xa_yp
         self.loss = cross_entropy
         self.predictions = predictions
         self.accuracy = acc
@@ -239,10 +263,10 @@ class NeuralIBM1Model_T2:
         accuracy_total = 0
 
         for batch_id, batch in enumerate(iterate_minibatches(data, batch_size=batch_size)):
-            x, y = prepare_data(batch, self.x_vocabulary, self.y_vocabulary)
+            x, y, prev_y = prepare_data_prev_y(batch, self.x_vocabulary, self.y_vocabulary)
             y_len = np.sum(np.sign(y), axis=1, dtype="int64")
 
-            align, prob, acc_correct, acc_total = self.get_viterbi(x, y)
+            align, prob, acc_correct, acc_total = self.get_viterbi(x, y, prev_y)
             accuracy_correct += acc_correct
             accuracy_total += acc_total
 
@@ -264,12 +288,13 @@ class NeuralIBM1Model_T2:
         accuracy = accuracy_correct / float(accuracy_total)
         return metric.aer(), accuracy
 
-    def get_viterbi(self, x, y):
+    def get_viterbi(self, x, y, prev_y):
         """Returns the Viterbi alignment for (x, y)"""
 
         feed_dict = {
             self.x: x,  # English
-            self.y: y   # French
+            self.y: y,   # French
+            self.prev_y: prev_y
         }
 
         # run model on this input
@@ -287,7 +312,7 @@ class NeuralIBM1Model_T2:
                 if french_word == 0:  # Padding
                     break
 
-                probs = py_xa[b, :, y[b, j]]
+                probs = py_xa[b, j, :, y[b, j]]
                 a_j = probs.argmax()
                 p_j = probs[a_j]
 

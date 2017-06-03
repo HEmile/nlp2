@@ -5,7 +5,7 @@ from pprint import pprint
 import pickle
 # check neuralibm1.py for the Model code
 from neuralibm1_T2_concat import NeuralIBM1Model_T2
-from neuralibm1_T3_gate import NeuralIBM1Model_T3
+from neuralibm1_T2_gate import NeuralIBM1Model_T2
 # check neuralibm1trainer.py for the Trainer code
 from neuralibm1trainer import *
 # the paths to our training and validation data, English side
@@ -53,7 +53,7 @@ with tf.Session() as sess:
   mlp_dim = 128
 
   # our model
-  model = NeuralIBM1Model_T3(
+  model = NeuralIBM1Model_T2_gate(
     x_vocabulary=vocabulary_e, y_vocabulary=vocabulary_f,
     batch_size=batch_size, emb_dim=emb_dim, mlp_dim=mlp_dim, session=sess)
 
