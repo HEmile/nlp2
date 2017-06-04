@@ -5,13 +5,14 @@ from utils import iterate_minibatches, prepare_data_prev_y, neural_net
 
 # for TF 1.1
 import tensorflow
+
 try:
     from tensorflow.contrib.keras.initializers import glorot_uniform
 except:  # for TF 1.0
     from tensorflow.contrib.layers import xavier_initializer as glorot_uniform
 
 
-class NeuralIBM1Model_T2_gate:
+class NeuralIBM1Model_T4:
     """Our Neural IBM1 model."""
 
     def __init__(self, batch_size=8,
@@ -117,6 +118,22 @@ class NeuralIBM1Model_T2_gate:
                 name="b", initializer=tf.zeros_initializer(),
                 shape=[self.y_vocabulary_size])
 
+            self.mlp_Wx_ = tf.get_variable(
+                name="Wx", initializer=glorot_uniform(),
+                shape=[self.emb_dim, self.mlp_dim])
+
+            self.mlp_bx_ = tf.get_variable(
+                name="bx", initializer=tf.zeros_initializer(),
+                shape=[self.mlp_dim])
+
+            self.mlp_Wy_ = tf.get_variable(
+                name="Wy", initializer=glorot_uniform(),
+                shape=[self.emb_dim, self.mlp_dim])
+
+            self.mlp_by_ = tf.get_variable(
+                name="by", initializer=tf.zeros_initializer(),
+                shape=[self.mlp_dim])
+
     def save(self, session, path="model.ckpt"):
         """Saves the model."""
         return self.saver.save(session, path)
@@ -218,21 +235,40 @@ class NeuralIBM1Model_T2_gate:
 
         u = tf.random_uniform([batch_size, longest_y])
 
-        s = tf.pow((1 - tf.pow(u, tf.div(1, beta))), tf.div(1, alfa))
+        s = tf.pow((1.0 - tf.pow(u, tf.div(1.0, beta))), tf.div(1.0, alfa))
+        s = tf.reshape(s, [batch_size, longest_y, 1, 1])  # [B, N, 1, 1]
 
-        tfbeta = lambda x, y: tf.exp(tf.lbeta(tf.concat(x, y)))
+        tfbeta = lambda x, y: tf.exp(tf.lbeta(tf.concat([tf.expand_dims(x, -1), tf.expand_dims(y, -1)], 2)))
 
-        KL = tf.div(alfa - a, alfa) * (-np.euler_gamma - tf.digamma(beta)-tf.div(1, beta)) \
-            + tf.log(alfa * beta) + tf.lbeta(tf.concat(a, b)) - tf.div(beta - 1, beta) + \
-             (b - 1) * beta * (tf.div(1, 1 + alfa * beta) * tfbeta(tf.div(1, alfa), beta) +
-                               tf.div(1, 2 + alfa * beta) * tfbeta(tf.div(2, alfa), beta) +
-                               tf.div(1, 3 + alfa * beta) * tfbeta(tf.div(3, alfa), beta))
+        KL = tf.divide(alfa - a, alfa) * (-np.euler_gamma - tf.digamma(beta) - tf.divide(1.0, beta)) \
+             + tf.log(alfa * beta) + tf.lbeta(tf.concat([tf.expand_dims(a, -1), tf.expand_dims(b, -1)], 2)) \
+             - tf.divide(beta - 1.0, beta) + (b - 1.0) * beta * \
+             tf.add_n([tf.divide(1.0, m + alfa * beta) * tfbeta(tf.divide(m, alfa), beta)
+                      for m in range(1, 10)]) # Approximation of Taylor expansion
+
+        KL = tf.reshape(KL, [batch_size, longest_y])
+
+        mlp_input_x = tf.reshape(x_embedded, [batch_size * longest_x, self.emb_dim])
+        hx = tf.matmul(mlp_input_x, self.mlp_Wx_) + self.mlp_bx_  # affine transformation
+
+        hy = tf.matmul(mlp_input_yprev, self.mlp_Wy_) + self.mlp_by_  # affine transformation
+
+        hx = tf.reshape(
+            hx, [batch_size, 1, longest_x, self.mlp_dim])  # [B, 1, M, h]
+        hy = tf.reshape(
+            hy, [batch_size, longest_y, 1, self.mlp_dim])  # [B, N, 1, h]
+
+        hx = tf.tanh(hx) * (1 - s)  # non-linearity, [B, N, M, h]
+        hy = tf.tanh(hy) * s  # non-linearity
+        h = tf.add(hx, hy)
+        h = tf.reshape(h, [batch_size * longest_y * longest_x, self.mlp_dim])
+
+        h = tf.matmul(h, self.mlp_W) + self.mlp_b
 
         # Now we perform a softmax which operates on a per-row basis.
         py_xa_yp = tf.nn.softmax(h)
         py_xa_yp = tf.reshape(
             py_xa_yp, [batch_size, longest_y, longest_x, self.y_vocabulary_size])
-
 
         # 2.c Marginalise alignments: \sum_a P(a|x) P(Y|x,a, yprev)
 
@@ -255,6 +291,8 @@ class NeuralIBM1Model_T2_gate:
             py_x, [batch_size, longest_y, self.y_vocabulary_size]
         )
 
+        ELBO = tf.log(py_x) - tf.expand_dims(KL, -1)
+
         # This calculates the accuracy, i.e. how many predictions we got right.
         predictions = tf.argmax(py_x, axis=2)
         acc = tf.equal(predictions, self.y)
@@ -265,8 +303,8 @@ class NeuralIBM1Model_T2_gate:
 
         cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
             labels=tf.reshape(self.y, [-1]),
-            logits=tf.log(tf.reshape(
-                py_x, [batch_size * longest_y, self.y_vocabulary_size])),
+            logits=tf.reshape(
+                ELBO, [batch_size * longest_y, self.y_vocabulary_size]),
             name="logits"
         )
         cross_entropy = tf.reshape(cross_entropy, [batch_size, longest_y])
@@ -276,10 +314,10 @@ class NeuralIBM1Model_T2_gate:
         # Now we define our cross entropy loss
         # Play with this if you want to try and replace TensorFlow's CE function.
         # Disclaimer: untested code
-#     y_one_hot = tf.one_hot(self.y, depth=self.y_vocabulary_size)     # [B, N, Vy]
-#     cross_entropy = tf.reduce_sum(y_one_hot * tf.log(py_x), axis=2)  # [B, N]
-#     cross_entropy = tf.reduce_sum(cross_entropy * y_mask, axis=1)    # [B]
-#     cross_entropy = -tf.reduce_mean(cross_entropy)  # scalar
+        #     y_one_hot = tf.one_hot(self.y, depth=self.y_vocabulary_size)     # [B, N, Vy]
+        #     cross_entropy = tf.reduce_sum(y_one_hot * tf.log(py_x), axis=2)  # [B, N]
+        #     cross_entropy = tf.reduce_sum(cross_entropy * y_mask, axis=1)    # [B]
+        #     cross_entropy = -tf.reduce_mean(cross_entropy)  # scalar
 
         self.pa_x = pa_x
         self.py_x = py_x
@@ -289,6 +327,7 @@ class NeuralIBM1Model_T2_gate:
         self.accuracy = acc
         self.accuracy_correct = tf.cast(acc_correct, tf.int64)
         self.accuracy_total = tf.cast(acc_total, tf.int64)
+        self.KL = KL
 
     def evaluate(self, data, ref_alignments, batch_size=4):
         """Evaluate the model on a data set."""
@@ -308,9 +347,9 @@ class NeuralIBM1Model_T2_gate:
             accuracy_correct += acc_correct
             accuracy_total += acc_total
 
-#       if batch_id == 0:
-#         print(batch[0])
-#      s = 0
+            #       if batch_id == 0:
+            #         print(batch[0])
+            #      s = 0
 
             for alignment, N, (sure, probable) in zip(align, y_len, ref_iterator):
                 # the evaluation ignores NULL links, so we discard them
@@ -318,10 +357,10 @@ class NeuralIBM1Model_T2_gate:
                 pred = set((aj, j)
                            for j, aj in enumerate(alignment[:N], 1) if aj > 0)
                 metric.update(sure=sure, probable=probable, predicted=pred)
-         #       print(batch[s])
-         #       print(alignment[:N])
-         #       print(pred)
-         #       s +=1
+                #       print(batch[s])
+                #       print(alignment[:N])
+                #       print(pred)
+                #       s +=1
 
         accuracy = accuracy_correct / float(accuracy_total)
         return metric.aer(), accuracy
@@ -331,7 +370,7 @@ class NeuralIBM1Model_T2_gate:
 
         feed_dict = {
             self.x: x,  # English
-            self.y: y,   # French
+            self.y: y,  # French
             self.prev_y: prev_y
         }
 
