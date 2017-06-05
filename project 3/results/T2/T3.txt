@@ -1,0 +1,23 @@
+Training with B=128 max_length=30 lr=0.001 lr_decay=0.0
+Initializing variables..
+Training started..
+Shuffling training data
+Iter   100 loss 60.072262 accuracy 0.17 lr 0.001000
+Iter   200 loss 50.103695 accuracy 0.21 lr 0.001000
+Iter   300 loss 50.697205 accuracy 0.20 lr 0.001000
+Iter   400 loss 47.225632 accuracy 0.24 lr 0.001000
+Iter   500 loss 41.692318 accuracy 0.28 lr 0.001000
+Iter   600 loss 48.303219 accuracy 0.26 lr 0.001000
+Iter   700 loss 42.009956 accuracy 0.28 lr 0.001000
+Iter   800 loss 42.284401 accuracy 0.29 lr 0.001000
+Iter   900 loss 46.990833 accuracy 0.27 lr 0.001000
+Iter  1000 loss 42.258541 accuracy 0.28 lr 0.001000
+Iter  1100 loss 46.758629 accuracy 0.28 lr 0.001000
+Iter  1200 loss 43.683052 accuracy 0.28 lr 0.001000
+Iter  1300 loss 41.265396 accuracy 0.30 lr 0.001000
+Epoch 1 loss 47.179125 accuracy 0.25 val_aer 0.86 val_acc 0.27
+Model saved in file: D:\GitHub\nlp2\project 3\model.ckpt
+Shuffling training data
+In [ ]:
+
+

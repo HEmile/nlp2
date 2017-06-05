@@ -47,19 +47,19 @@ class NeuralIBM1Model_T3_coll:
         with tf.variable_scope("MLP") as scope:
             self.mlp_Wx_ = tf.get_variable(
                 name="Wx_", initializer=glorot_uniform(),
-                shape=[self.emb_dim, self.mlp_dim])
+                shape=[self.emb_dim, self.y_vocabulary_size])
 
             self.mlp_bx_ = tf.get_variable(
                 name="bx_", initializer=tf.zeros_initializer(),
-                shape=[self.mlp_dim])
+                shape=[self.y_vocabulary_size])
 
             self.mlp_Wy_ = tf.get_variable(
                 name="Wy_", initializer=glorot_uniform(),
-                shape=[self.emb_dim, self.mlp_dim])
+                shape=[self.emb_dim, self.y_vocabulary_size])
 
             self.mlp_by_ = tf.get_variable(
                 name="by_", initializer=tf.zeros_initializer(),
-                shape=[self.mlp_dim])
+                shape=[self.y_vocabulary_size])
 
             self.mlp_W = tf.get_variable(
                 name="W", initializer=glorot_uniform(),
@@ -172,15 +172,15 @@ class NeuralIBM1Model_T3_coll:
 
         # P (F|E)
         py_xa = tf.matmul(mlp_input_x, self.mlp_Wx_) + self.mlp_bx_
-        py_xa = tf.nn.softmax(py_xa)  # affine transformation
+        py_xa = tf.nn.softmax(py_xa) 
         py_xa = tf.reshape(
-            py_xa, [batch_size, 1, longest_x, self.mlp_dim])  # [B, 1, M, emb]
+            py_xa, [batch_size, 1, longest_x, self.y_vocabulary_size])  # [B, 1, M, emb]
 
         #P(F|Fprev)
         py_yp = tf.matmul(mlp_input_y, self.mlp_Wy_) + self.mlp_by_
-        py_yp = tf.nn.softmax(py_yp)  # affine transformation
+        py_yp = tf.nn.softmax(py_yp) 
         py_yp = tf.reshape(
-            py_yp, [batch_size, longest_y, 1, self.mlp_dim])  # [B, N, 1, emb]
+            py_yp, [batch_size, longest_y, 1, self.y_vocabulary_size])  # [B, N, 1, emb]
         
         
         hy_xa = py_xa*(1-s) # [B,1,M, emb]*[ 1- [B,N,1,1]
