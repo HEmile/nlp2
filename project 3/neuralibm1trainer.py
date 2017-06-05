@@ -115,7 +115,7 @@ class NeuralIBM1Trainer:
 
                 if batch_id % 100 == 0:
                     print("Iter {:5d} loss {:6f} accuracy {:1.2f} lr {:1.6f}".format(
-                          batch_id, res["loss"], batch_accuracy, lr_t))
+                        batch_id, res["loss"], batch_accuracy, lr_t))
 
             # evaluate on development set
             val_aer, val_acc = self.model.evaluate(
