@@ -1,0 +1,143 @@
+C:\Users\Emile\Anaconda3\python.exe "C:/Users/Emile/Dropbox/Universiteit/nlp2/project 3/main.py"
+English vocabulary size: 1005
+French vocabulary size: 1005
+
+2017-06-02 12:55:29.803329: W c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\platform\cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use SSE instructions, but these are available on your machine and could speed up CPU computations.
+2017-06-02 12:55:29.803602: W c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\platform\cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use SSE2 instructions, but these are available on your machine and could speed up CPU computations.
+2017-06-02 12:55:29.804163: W c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\platform\cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use SSE3 instructions, but these are available on your machine and could speed up CPU computations.
+2017-06-02 12:55:29.804328: W c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\platform\cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use SSE4.1 instructions, but these are available on your machine and could speed up CPU computations.
+2017-06-02 12:55:29.804536: W c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\platform\cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use SSE4.2 instructions, but these are available on your machine and could speed up CPU computations.
+2017-06-02 12:55:29.804765: W c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\platform\cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use AVX instructions, but these are available on your machine and could speed up CPU computations.
+2017-06-02 12:55:29.805352: W c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\platform\cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use AVX2 instructions, but these are available on your machine and could speed up CPU computations.
+2017-06-02 12:55:29.805521: W c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\platform\cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use FMA instructions, but these are available on your machine and could speed up CPU computations.
+2017-06-02 12:55:30.253921: I c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\common_runtime\gpu\gpu_device.cc:887] Found device 0 with properties: 
+name: GeForce GTX 970
+major: 5 minor: 2 memoryClockRate (GHz) 1.253
+pciBusID 0000:01:00.0
+Total memory: 4.00GiB
+Free memory: 3.31GiB
+2017-06-02 12:55:30.254189: I c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\common_runtime\gpu\gpu_device.cc:908] DMA: 0 
+2017-06-02 12:55:30.254312: I c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\common_runtime\gpu\gpu_device.cc:918] 0:   Y 
+2017-06-02 12:55:30.254444: I c:\tf_jenkins\home\workspace\release-win\device\gpu\os\windows\tensorflow\core\common_runtime\gpu\gpu_device.cc:977] Creating TensorFlow device (/gpu:0) -> (device: 0, name: GeForce GTX 970, pci bus id: 0000:01:00.0)
+Training with B=128 max_length=30 lr=0.001 lr_decay=0.0
+Initializing variables..
+Training started..
+Shuffling training data
+Iter   100 loss 60.445446 accuracy 0.19 lr 0.001000
+Iter   200 loss 57.433849 accuracy 0.18 lr 0.001000
+Iter   300 loss 47.242256 accuracy 0.25 lr 0.001000
+Iter   400 loss 40.884239 accuracy 0.31 lr 0.001000
+Iter   500 loss 42.097054 accuracy 0.30 lr 0.001000
+Iter   600 loss 43.339390 accuracy 0.33 lr 0.001000
+Iter   700 loss 38.284935 accuracy 0.34 lr 0.001000
+Iter   800 loss 34.115379 accuracy 0.34 lr 0.001000
+Iter   900 loss 34.529972 accuracy 0.35 lr 0.001000
+Iter  1000 loss 36.553051 accuracy 0.34 lr 0.001000
+Iter  1100 loss 33.244473 accuracy 0.38 lr 0.001000
+Iter  1200 loss 31.355543 accuracy 0.37 lr 0.001000
+Iter  1300 loss 34.159901 accuracy 0.34 lr 0.001000
+Epoch 1 loss 42.566911 accuracy 0.30 val_aer 0.46 val_acc 0.27
+Model saved in file: C:\Users\Emile\Dropbox\Universiteit\nlp2\project 3\model.ckpt
+Shuffling training data
+Iter   100 loss 34.204330 accuracy 0.35 lr 0.001000
+Iter   200 loss 31.081284 accuracy 0.37 lr 0.001000
+Iter   300 loss 29.532919 accuracy 0.39 lr 0.001000
+Iter   400 loss 32.526047 accuracy 0.37 lr 0.001000
+Iter   500 loss 32.880665 accuracy 0.38 lr 0.001000
+Iter   600 loss 31.836258 accuracy 0.37 lr 0.001000
+Iter   700 loss 31.900164 accuracy 0.38 lr 0.001000
+Iter   800 loss 27.176979 accuracy 0.37 lr 0.001000
+Iter   900 loss 33.243019 accuracy 0.37 lr 0.001000
+Iter  1000 loss 28.334436 accuracy 0.36 lr 0.001000
+Iter  1100 loss 32.896484 accuracy 0.37 lr 0.001000
+Iter  1200 loss 28.038357 accuracy 0.39 lr 0.001000
+Iter  1300 loss 30.774799 accuracy 0.39 lr 0.001000
+Epoch 2 loss 32.251244 accuracy 0.36 val_aer 0.45 val_acc 0.28
+Model saved in file: C:\Users\Emile\Dropbox\Universiteit\nlp2\project 3\model.ckpt
+Shuffling training data
+Iter   100 loss 30.814667 accuracy 0.38 lr 0.001000
+Iter   200 loss 31.708923 accuracy 0.37 lr 0.001000
+Iter   300 loss 31.908901 accuracy 0.36 lr 0.001000
+Iter   400 loss 30.786486 accuracy 0.38 lr 0.001000
+Iter   500 loss 33.194107 accuracy 0.36 lr 0.001000
+Iter   600 loss 33.924717 accuracy 0.36 lr 0.001000
+Iter   700 loss 29.264725 accuracy 0.37 lr 0.001000
+Iter   800 loss 28.840710 accuracy 0.37 lr 0.001000
+Iter   900 loss 26.823433 accuracy 0.41 lr 0.001000
+Iter  1000 loss 34.441254 accuracy 0.37 lr 0.001000
+Iter  1100 loss 34.477520 accuracy 0.34 lr 0.001000
+Iter  1200 loss 29.936478 accuracy 0.39 lr 0.001000
+Iter  1300 loss 31.953760 accuracy 0.35 lr 0.001000
+Epoch 3 loss 31.415073 accuracy 0.37 val_aer 0.46 val_acc 0.28
+Model saved in file: C:\Users\Emile\Dropbox\Universiteit\nlp2\project 3\model.ckpt
+Shuffling training data
+Iter   100 loss 30.456480 accuracy 0.36 lr 0.001000
+Iter   200 loss 33.662239 accuracy 0.35 lr 0.001000
+Iter   300 loss 27.298021 accuracy 0.39 lr 0.001000
+Iter   400 loss 29.678589 accuracy 0.36 lr 0.001000
+Iter   500 loss 33.218822 accuracy 0.35 lr 0.001000
+Iter   600 loss 26.200918 accuracy 0.40 lr 0.001000
+Iter   700 loss 32.060471 accuracy 0.38 lr 0.001000
+Iter   800 loss 31.224867 accuracy 0.37 lr 0.001000
+Iter   900 loss 30.035646 accuracy 0.36 lr 0.001000
+Iter  1000 loss 29.412970 accuracy 0.39 lr 0.001000
+Iter  1100 loss 29.548332 accuracy 0.38 lr 0.001000
+Iter  1200 loss 29.642715 accuracy 0.38 lr 0.001000
+Iter  1300 loss 30.168695 accuracy 0.38 lr 0.001000
+Epoch 4 loss 31.059156 accuracy 0.37 val_aer 0.46 val_acc 0.27
+Model saved in file: C:\Users\Emile\Dropbox\Universiteit\nlp2\project 3\model.ckpt
+Shuffling training data
+Iter   100 loss 29.371586 accuracy 0.37 lr 0.001000
+Iter   200 loss 30.287094 accuracy 0.37 lr 0.001000
+Iter   300 loss 32.993122 accuracy 0.37 lr 0.001000
+Iter   400 loss 28.053802 accuracy 0.38 lr 0.001000
+Iter   500 loss 29.251118 accuracy 0.38 lr 0.001000
+Iter   600 loss 32.621471 accuracy 0.36 lr 0.001000
+Iter   700 loss 29.597363 accuracy 0.38 lr 0.001000
+Iter   800 loss 32.069912 accuracy 0.38 lr 0.001000
+Iter   900 loss 34.067528 accuracy 0.34 lr 0.001000
+Iter  1000 loss 34.285404 accuracy 0.37 lr 0.001000
+Iter  1100 loss 27.905296 accuracy 0.38 lr 0.001000
+Iter  1200 loss 32.570168 accuracy 0.38 lr 0.001000
+Iter  1300 loss 26.332279 accuracy 0.41 lr 0.001000
+Epoch 5 loss 30.845132 accuracy 0.37 val_aer 0.46 val_acc 0.28
+Model saved in file: C:\Users\Emile\Dropbox\Universiteit\nlp2\project 3\model.ckpt
+Shuffling training data
+Iter   100 loss 33.264912 accuracy 0.37 lr 0.001000
+Iter   200 loss 25.226700 accuracy 0.39 lr 0.001000
+Iter   300 loss 31.383949 accuracy 0.39 lr 0.001000
+Iter   400 loss 31.695963 accuracy 0.39 lr 0.001000
+Iter   500 loss 29.274860 accuracy 0.37 lr 0.001000
+Iter   600 loss 28.076101 accuracy 0.38 lr 0.001000
+Iter   700 loss 30.495312 accuracy 0.37 lr 0.001000
+Iter   800 loss 27.407856 accuracy 0.40 lr 0.001000
+Iter   900 loss 30.482155 accuracy 0.40 lr 0.001000
+Iter  1000 loss 31.638578 accuracy 0.35 lr 0.001000
+Iter  1100 loss 31.149570 accuracy 0.38 lr 0.001000
+Iter  1200 loss 30.691471 accuracy 0.36 lr 0.001000
+Iter  1300 loss 29.615032 accuracy 0.37 lr 0.001000
+Epoch 6 loss 30.691184 accuracy 0.37 val_aer 0.46 val_acc 0.28
+Model saved in file: C:\Users\Emile\Dropbox\Universiteit\nlp2\project 3\model.ckpt
+Shuffling training data
+Iter   100 loss 33.172939 accuracy 0.38 lr 0.001000
+Iter   200 loss 27.845457 accuracy 0.39 lr 0.001000
+Iter   300 loss 32.442631 accuracy 0.37 lr 0.001000
+Iter   400 loss 34.444069 accuracy 0.35 lr 0.001000
+Iter   500 loss 30.272961 accuracy 0.38 lr 0.001000
+Iter   600 loss 31.027889 accuracy 0.37 lr 0.001000
+Iter   700 loss 35.759045 accuracy 0.33 lr 0.001000
+Iter   800 loss 29.857519 accuracy 0.40 lr 0.001000
+Iter   900 loss 29.313473 accuracy 0.41 lr 0.001000
+Iter  1000 loss 30.006641 accuracy 0.40 lr 0.001000
+Iter  1100 loss 31.385330 accuracy 0.36 lr 0.001000
+Iter  1200 loss 31.623785 accuracy 0.35 lr 0.001000
+Iter  1300 loss 28.721327 accuracy 0.40 lr 0.001000
+Epoch 7 loss 30.588469 accuracy 0.37 val_aer 0.46 val_acc 0.27
+Model saved in file: C:\Users\Emile\Dropbox\Universiteit\nlp2\project 3\model.ckpt
+Shuffling training data
+Iter   100 loss 29.339737 accuracy 0.38 lr 0.001000
+Iter   200 loss 29.179834 accuracy 0.40 lr 0.001000
+Iter   300 loss 27.989742 accuracy 0.41 lr 0.001000
+Iter   400 loss 29.931690 accuracy 0.37 lr 0.001000
+
+Process finished with exit code -1
