@@ -58,7 +58,7 @@ class NeuralIBM1Trainer:
         self.optimizer = tf.train.AdamOptimizer(
             learning_rate=self.lr_ph).minimize(self.model.loss)
 
-    def train(self):
+    def train(self, stats_tracker={}):
         """Trains a model."""
 
         steps = 0
@@ -116,6 +116,7 @@ class NeuralIBM1Trainer:
                 if batch_id % 100 == 0:
                     print("Iter {:5d} loss {:6f} accuracy {:1.2f} lr {:1.6f}".format(
                         batch_id, res["loss"], batch_accuracy, lr_t))
+                    stats_tracker.update(batch_id, res["loss"], batch_accuracy, lr_t)
 
             # evaluate on development set
             val_aer, val_acc = self.model.evaluate(
