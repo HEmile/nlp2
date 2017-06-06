@@ -6,6 +6,7 @@ class StatsTracker:
         self.loss = []
         self.acc = []
         self.lr = []
+        self.epoch_nr = 0
         self.plot()
 
     def update(self,n, loss, acc, lr):
@@ -16,31 +17,38 @@ class StatsTracker:
         self.update_plot()
 
     def plot(self):
-        plt.figure(1)
-        plt.title("Loss over batches")
+        plt.figure(self.epoch_nr * 3 + 1)
+        plt.title("Loss over batches in epoch " + str(self.epoch_nr + 1))
         plt.plot(self.n, self.loss)
         plt.xlabel('Batch number')
         plt.ylabel('Loss')
 
-
-        plt.figure(2)
-        plt.title("Accuracy over batches")
+        plt.figure(self.epoch_nr * 3 + 2)
+        plt.title("Accuracy over batches in epoch " + str(self.epoch_nr + 1))
         plt.plot(self.n, self.acc)
         plt.xlabel('Batch number')
         plt.ylabel('Accuracy')
 
-        plt.figure(3)
-        plt.title("Learning rate over batches")
+        plt.figure(self.epoch_nr * 3 + 3)
+        plt.title("Learning rate over batches in epoch " + str(self.epoch_nr + 1))
         plt.plot(self.n, self.lr)
         plt.xlabel('Batch number')
         plt.ylabel('Learning rate')
 
     def update_plot(self):
-        plt.figure(1)
+        plt.figure(self.epoch_nr * 3 + 1)
         plt.plot(self.n, self.loss)
 
-        plt.figure(2)
-        plt.plot(self.n, self.loss)
+        plt.figure(self.epoch_nr * 3 + 2)
+        plt.plot(self.n, self.acc)
 
-        plt.figure(3)
-        plt.plot(self.n, self.loss)
+        plt.figure(self.epoch_nr * 3 + 3)
+        plt.plot(self.n, self.lr)
+
+    def update_epoch(self, epoch):
+        self.epoch_nr = epoch - 1
+        self.n = []
+        self.loss = []
+        self.acc = []
+        self.lr = []
+        self.plot()
