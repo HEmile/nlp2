@@ -18,21 +18,27 @@ class StatsTracker:
 
     def plot(self):
         plt.figure(self.epoch_nr * 3 + 1)
-        plt.gcf().clear()
+        ax = plt.gca()
+        if ax.lines:
+            ax.lines.remove(ax.lines[0])
         plt.title("Loss over batches in epoch " + str(self.epoch_nr + 1))
         plt.plot(self.n, self.loss)
         plt.xlabel('Batch number')
         plt.ylabel('Loss')
 
         plt.figure(self.epoch_nr * 3 + 2)
-        plt.gcf().clear()
+        ax = plt.gca()
+        if ax.lines:
+            ax.lines.remove(ax.lines[0])
         plt.title("Accuracy over batches in epoch " + str(self.epoch_nr + 1))
         plt.plot(self.n, self.acc)
         plt.xlabel('Batch number')
         plt.ylabel('Accuracy')
 
         plt.figure(self.epoch_nr * 3 + 3)
-        plt.gcf().clear()
+        ax = plt.gca()
+        if ax.lines:
+            ax.lines.remove(ax.lines[0])
         plt.title("Learning rate over batches in epoch " + str(self.epoch_nr + 1))
         plt.plot(self.n, self.lr)
         plt.xlabel('Batch number')
@@ -40,15 +46,18 @@ class StatsTracker:
 
     def update_plot(self):
         plt.figure(self.epoch_nr * 3 + 1)
-        plt.gcf().clear()
+        ax = plt.gca()
+        ax.lines.remove(ax.lines[0])
         plt.plot(self.n, self.loss)
 
         plt.figure(self.epoch_nr * 3 + 2)
-        plt.gcf().clear()
+        ax = plt.gca()
+        ax.lines.remove(ax.lines[0])
         plt.plot(self.n, self.acc)
 
         plt.figure(self.epoch_nr * 3 + 3)
-        plt.gcf().clear()
+        ax = plt.gca()
+        ax.lines.remove(ax.lines[0])
         plt.plot(self.n, self.lr)
 
     def update_epoch(self, epoch):
