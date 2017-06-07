@@ -116,7 +116,6 @@ class NeuralIBM1Trainer:
                 if batch_id % 100 == 0:
                     print("Iter {:5d} loss {:6f} accuracy {:1.2f} lr {:1.6f}".format(
                         batch_id, res["loss"], batch_accuracy, lr_t))
-                    stats_tracker.update(batch_id, res["loss"], batch_accuracy, lr_t)
 
             # evaluate on development set
             val_aer, val_acc = self.model.evaluate(
@@ -128,6 +127,7 @@ class NeuralIBM1Trainer:
                 loss / float(epoch_steps),
                 accuracy_correct / float(accuracy_total),
                 val_aer, val_acc))
+            stats_tracker.update(epoch_id, loss/float(epoch_steps), accuracy_correct/float(accuracy_total), val_aer)
 
             # save parameters
             save_path = self.model.save(self.session, path=os.path.join(os.getcwd(), "model.ckpt"))

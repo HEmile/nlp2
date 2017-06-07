@@ -5,15 +5,15 @@ class StatsTracker:
         self.n = []
         self.loss = []
         self.acc = []
-        self.lr = []
+        self.aer = []
         self.epoch_nr = 0
         self.plot()
 
-    def update(self,n, loss, acc, lr):
+    def update(self,n, loss, acc, aer):
         self.n.append(n)
         self.loss.append(loss)
         self.acc.append(acc)
-        self.lr.append(lr)
+        self.aer.append(aer)
         self.update_plot()
 
     def plot(self):
@@ -21,28 +21,28 @@ class StatsTracker:
         ax = plt.gca()
         if ax.lines:
             ax.lines.remove(ax.lines[0])
-        plt.title("Loss over batches in epoch " + str(self.epoch_nr + 1))
+        plt.title("Loss over epochs ")
         plt.plot(self.n, self.loss)
-        plt.xlabel('Batch number')
+        plt.xlabel('Epochs')
         plt.ylabel('Loss')
 
         plt.figure(self.epoch_nr * 3 + 2)
         ax = plt.gca()
         if ax.lines:
             ax.lines.remove(ax.lines[0])
-        plt.title("Accuracy over batches in epoch " + str(self.epoch_nr + 1))
+        plt.title("Accuracy over epochs ")
         plt.plot(self.n, self.acc)
-        plt.xlabel('Batch number')
+        plt.xlabel('Epochs')
         plt.ylabel('Accuracy')
 
         plt.figure(self.epoch_nr * 3 + 3)
         ax = plt.gca()
         if ax.lines:
             ax.lines.remove(ax.lines[0])
-        plt.title("Learning rate over batches in epoch " + str(self.epoch_nr + 1))
-        plt.plot(self.n, self.lr)
-        plt.xlabel('Batch number')
-        plt.ylabel('Learning rate')
+        plt.title("AER over epochs")
+        plt.plot(self.n, self.aer)
+        plt.xlabel('Epochs')
+        plt.ylabel('AER')
 
     def update_plot(self):
         plt.figure(self.epoch_nr * 3 + 1)
@@ -58,7 +58,7 @@ class StatsTracker:
         plt.figure(self.epoch_nr * 3 + 3)
         ax = plt.gca()
         ax.lines.remove(ax.lines[0])
-        plt.plot(self.n, self.lr)
+        plt.plot(self.n, self.aer)
 
     def update_epoch(self, epoch):
         self.epoch_nr = epoch - 1
