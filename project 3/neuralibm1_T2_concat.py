@@ -238,8 +238,6 @@ class NeuralIBM1Model_T2:
             accuracy_correct += acc_correct
             accuracy_total += acc_total
 
-            if batch_id == 0:
-                print(batch[0])
             s = 0
 
             for alignment, N, (sure, probable) in zip(align, y_len, ref_iterator):
@@ -248,9 +246,6 @@ class NeuralIBM1Model_T2:
                 pred = set((aj, j)
                            for j, aj in enumerate(alignment[:N], 1) if aj > 0)
                 metric.update(sure=sure, probable=probable, predicted=pred)
-                print(batch[s])
-                print(alignment[:N])
-                print(pred)
                 s += 1
 
         accuracy = accuracy_correct / float(accuracy_total)
