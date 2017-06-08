@@ -64,7 +64,6 @@ class NeuralIBM1Trainer:
         steps = 0
 
         for epoch_id in range(1, self.num_epochs + 1):
-            stats_tracker.update_epoch(epoch_id)
             # shuffle data set every epoch
             print("Shuffling training data")
             random.shuffle(self.corpus)

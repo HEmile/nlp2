@@ -6,7 +6,6 @@ class StatsTracker:
         self.loss = []
         self.acc = []
         self.aer = []
-        self.epoch_nr = 0
         self.plot()
 
     def update(self,n, loss, acc, aer):
@@ -17,7 +16,7 @@ class StatsTracker:
         self.update_plot()
 
     def plot(self):
-        plt.figure(self.epoch_nr * 3 + 1)
+        plt.figure(1)
         ax = plt.gca()
         if ax.lines:
             ax.lines.remove(ax.lines[0])
@@ -26,7 +25,7 @@ class StatsTracker:
         plt.xlabel('Epochs')
         plt.ylabel('Loss')
 
-        plt.figure(self.epoch_nr * 3 + 2)
+        plt.figure(2)
         ax = plt.gca()
         if ax.lines:
             ax.lines.remove(ax.lines[0])
@@ -35,7 +34,7 @@ class StatsTracker:
         plt.xlabel('Epochs')
         plt.ylabel('Accuracy')
 
-        plt.figure(self.epoch_nr * 3 + 3)
+        plt.figure(3)
         ax = plt.gca()
         if ax.lines:
             ax.lines.remove(ax.lines[0])
@@ -45,25 +44,20 @@ class StatsTracker:
         plt.ylabel('AER')
 
     def update_plot(self):
-        plt.figure(self.epoch_nr * 3 + 1)
+        plt.figure(1)
         ax = plt.gca()
-        ax.lines.remove(ax.lines[0])
+        if ax.lines:
+            ax.lines.remove(ax.lines[0])
         plt.plot(self.n, self.loss)
 
-        plt.figure(self.epoch_nr * 3 + 2)
+        plt.figure(2)
         ax = plt.gca()
-        ax.lines.remove(ax.lines[0])
+        if ax.lines:
+            ax.lines.remove(ax.lines[0])
         plt.plot(self.n, self.acc)
 
-        plt.figure(self.epoch_nr * 3 + 3)
+        plt.figure(3)
         ax = plt.gca()
-        ax.lines.remove(ax.lines[0])
+        if ax.lines:
+            ax.lines.remove(ax.lines[0])
         plt.plot(self.n, self.aer)
-
-    def update_epoch(self, epoch):
-        self.epoch_nr = epoch - 1
-        self.n = []
-        self.loss = []
-        self.acc = []
-        self.lr = []
-        self.plot()
