@@ -221,8 +221,8 @@ class NeuralIBM1Model_T4:
 
         a = neural_net(mlp_input_yprev, self.mlp_Wa_, self.mlp_ba_, self.mlp_Wah_, self.mlp_bah_, tf.exp)
         b = neural_net(mlp_input_yprev, self.mlp_Wb_, self.mlp_bb_, self.mlp_Wbh_, self.mlp_bbh_, tf.exp)
-        a = tf.reshape(a, [batch_size, longest_y])
-        b = tf.reshape(b, [batch_size, longest_y])
+        a = tf.minimum(0.001, tf.reshape(a, [batch_size, longest_y]))
+        b = tf.minimum(0.001, tf.reshape(b, [batch_size, longest_y]))
 
         mlp_input_conc = tf.reshape(
             tf.concat([y_embed_prev, y_embed], 1), [batch_size * longest_y, 2 * self.emb_dim]
@@ -230,8 +230,8 @@ class NeuralIBM1Model_T4:
 
         alfa = neural_net(mlp_input_conc, self.mlp_Walfa_, self.mlp_balfa_, self.mlp_Walfah_, self.mlp_balfah_, tf.exp)
         beta = neural_net(mlp_input_conc, self.mlp_Wbeta_, self.mlp_bbeta_, self.mlp_Wbetah_, self.mlp_bbetah_, tf.exp)
-        alfa = tf.reshape(alfa, [batch_size, longest_y])
-        beta = tf.reshape(beta, [batch_size, longest_y])
+        alfa = tf.minimum(0.001, tf.reshape(alfa, [batch_size, longest_y]))
+        beta = tf.minimum(0.001, tf.reshape(beta, [batch_size, longest_y]))
 
         u = tf.random_uniform([batch_size, longest_y])
 
@@ -247,6 +247,8 @@ class NeuralIBM1Model_T4:
                       for m in range(1, 10)]) # Approximation of Taylor expansion
 
         KL = tf.reshape(KL, [batch_size, longest_y])
+        KL = tf.maximum(0.0, KL)
+
 
         mlp_input_x = tf.reshape(x_embedded, [batch_size * longest_x, self.emb_dim])
         hx = tf.matmul(mlp_input_x, self.mlp_Wx_) + self.mlp_bx_  # affine transformation
